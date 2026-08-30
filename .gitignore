@@ -1,0 +1,35 @@
+# --- Go Binaries and Build Outputs ---
+bin/
+out/
+dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.prof
+
+# --- Cursor / VS Code Configuration ---
+.cursor/
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# --- Data and Log Files (Market Data / Feeds) ---
+*.csv
+*.json
+*.xml
+*.xlsx
+*.xlsm
+*.tsv
+*.log
+
+# --- Local Environment / Secrets ---
+.env
+.env.local
+.env.*.local
+*.secret
