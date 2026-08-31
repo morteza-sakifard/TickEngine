@@ -11,6 +11,7 @@ dist/
 *.prof
 
 # --- Cursor / VS Code Configuration ---
+.idea/
 .cursor/
 .vscode/
 !.vscode/settings.json
