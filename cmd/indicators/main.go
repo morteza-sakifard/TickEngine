@@ -30,6 +30,8 @@ func main() {
 	var cvd indicators.CVD
 	var vp indicators.VolumeProfile
 	var fp indicators.Footprint
+	var tpo indicators.TPO
+
 	for {
 		t, err := stream.Read()
 		if err != nil {
@@ -43,6 +45,7 @@ func main() {
 		cvd.Add(t)
 		vp.Add(t)
 		fp.Add(t)
+		tpo.Add(t)
 	}
 
 	var totalVolume int64
@@ -70,4 +73,7 @@ func main() {
 	fmt.Printf("FP buy:     %d\n", fpBuy)
 	fmt.Printf("FP sell:    %d\n", fpSell)
 	fmt.Printf("FP delta:   %d\n", fpBuy-fpSell)
+
+	fmt.Printf("TPO levels: %d\n", len(tpo.Levels()))
+	fmt.Printf("TPO POC:    %.2f (periods %d)\n", tpo.POC().Price, tpo.POC().Count())
 }
