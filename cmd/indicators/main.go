@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -25,17 +26,20 @@ func main() {
 	stream := trade.NewReader(mbp1.NewTradeReader(reader))
 
 	var vwap indicators.VWAP
+	var delta indicators.Delta
 	for {
 		t, err := stream.Read()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			log.Fatalf("Failed to read trade: %v", err)
 		}
 		vwap.Add(t)
+		delta.Add(t)
 	}
 
 	fmt.Printf("Trades: %d\n", stream.Row())
 	fmt.Printf("VWAP:   %.4f\n", vwap.Value())
+	fmt.Printf("Delta:  %d\n", delta.Value())
 }

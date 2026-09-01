@@ -12,6 +12,7 @@ func (v *VWAP) Add(t trade.Trade) {
 	v.sumV += float64(t.Size)
 }
 
+// Value returns the current VWAP, or 0 if no trades have been added.
 func (v *VWAP) Value() float64 {
 	if v.sumV == 0 {
 		return 0
