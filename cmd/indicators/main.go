@@ -25,12 +25,7 @@ func main() {
 	}
 	stream := trade.NewReader(mbp1.NewTradeReader(reader))
 
-	var vwap indicators.VWAP
-	var delta indicators.Delta
-	var cvd indicators.CVD
-	var vp indicators.VolumeProfile
-	var fp indicators.Footprint
-	var tpo indicators.TPO
+	var pipeline indicators.Pipeline
 
 	for {
 		t, err := stream.Read()
@@ -40,40 +35,32 @@ func main() {
 			}
 			log.Fatalf("Failed to read trade: %v", err)
 		}
-		vwap.Add(t)
-		delta.Add(t)
-		cvd.Add(t)
-		vp.Add(t)
-		fp.Add(t)
-		tpo.Add(t)
+		pipeline.Add(t)
 	}
 
 	var totalVolume int64
-	for _, l := range vp.Levels() {
+	for _, l := range pipeline.VolumeProfile.Levels() {
 		totalVolume += l.Volume
 	}
 
 	var fpBuy, fpSell int64
-	for _, l := range fp.Levels() {
+	for _, l := range pipeline.Footprint.Levels() {
 		fpBuy += l.BuyVolume
 		fpSell += l.SellVolume
 	}
 
 	fmt.Printf("Trades: %d\n", stream.Row())
-	fmt.Printf("VWAP:   %.4f\n", vwap.Value())
-	fmt.Printf("Delta:  %d\n", delta.Value())
-	fmt.Printf("CVD final:  %d\n", cvd.Value())
-	fmt.Printf("CVD points: %d\n", len(cvd.Series()))
-
-	fmt.Printf("VP levels:  %d\n", len(vp.Levels()))
+	fmt.Printf("VWAP:   %.4f\n", pipeline.VWAP.Value())
+	fmt.Printf("Delta:  %d\n", pipeline.Delta.Value())
+	fmt.Printf("CVD final:  %d\n", pipeline.CVD.Value())
+	fmt.Printf("CVD points: %d\n", len(pipeline.CVD.Series()))
+	fmt.Printf("VP levels:  %d\n", len(pipeline.VolumeProfile.Levels()))
 	fmt.Printf("VP total:   %d\n", totalVolume)
-	fmt.Printf("VP POC:     %.2f (vol %d)\n", vp.POC().Price, vp.POC().Volume)
-
-	fmt.Printf("FP levels:  %d\n", len(fp.Levels()))
+	fmt.Printf("VP POC:     %.2f (vol %d)\n", pipeline.VolumeProfile.POC().Price, pipeline.VolumeProfile.POC().Volume)
+	fmt.Printf("FP levels:  %d\n", len(pipeline.Footprint.Levels()))
 	fmt.Printf("FP buy:     %d\n", fpBuy)
 	fmt.Printf("FP sell:    %d\n", fpSell)
 	fmt.Printf("FP delta:   %d\n", fpBuy-fpSell)
-
-	fmt.Printf("TPO levels: %d\n", len(tpo.Levels()))
-	fmt.Printf("TPO POC:    %.2f (periods %d)\n", tpo.POC().Price, tpo.POC().Count())
+	fmt.Printf("TPO levels: %d\n", len(pipeline.TPO.Levels()))
+	fmt.Printf("TPO POC:    %.2f (periods %d)\n", pipeline.TPO.POC().Price, pipeline.TPO.POC().Count())
 }
