@@ -27,6 +27,8 @@ func main() {
 
 	var vwap indicators.VWAP
 	var delta indicators.Delta
+	var cvd indicators.CVD
+
 	for {
 		t, err := stream.Read()
 		if err != nil {
@@ -37,9 +39,12 @@ func main() {
 		}
 		vwap.Add(t)
 		delta.Add(t)
+		cvd.Add(t)
 	}
 
 	fmt.Printf("Trades: %d\n", stream.Row())
 	fmt.Printf("VWAP:   %.4f\n", vwap.Value())
 	fmt.Printf("Delta:  %d\n", delta.Value())
+	fmt.Printf("CVD final:  %d\n", cvd.Value())
+	fmt.Printf("CVD points: %d\n", len(cvd.Series()))
 }
