@@ -8,6 +8,10 @@ import (
 
 func TestFootprint(t *testing.T) {
 	var fp Footprint
+	if got := fp.Levels(); len(got) != 0 {
+		t.Errorf("Levels() with no trades = %v, want empty", got)
+	}
+
 	fp.Add(trade.Trade{Price: 100.00, Size: 5, Side: trade.Buy})
 	fp.Add(trade.Trade{Price: 100.25, Size: 3, Side: trade.Sell})
 	fp.Add(trade.Trade{Price: 100.00, Size: 2, Side: trade.Sell})

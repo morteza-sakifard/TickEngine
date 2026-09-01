@@ -8,6 +8,13 @@ import (
 
 func TestVolumeProfile(t *testing.T) {
 	var vp VolumeProfile
+	if got := vp.Levels(); len(got) != 0 {
+		t.Errorf("Levels() with no trades = %v, want empty", got)
+	}
+	if got := vp.POC(); got != (PriceLevel{}) {
+		t.Errorf("POC() with no trades = %+v, want zero value", got)
+	}
+
 	vp.Add(trade.Trade{Price: 100.00, Size: 5, Side: trade.Buy})
 	vp.Add(trade.Trade{Price: 100.25, Size: 3, Side: trade.Sell})
 	vp.Add(trade.Trade{Price: 100.00, Size: 2, Side: trade.Sell})

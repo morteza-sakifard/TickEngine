@@ -9,6 +9,13 @@ import (
 
 func TestCVD(t *testing.T) {
 	var c CVD
+	if got := c.Value(); got != 0 {
+		t.Errorf("Value() with no trades = %v, want 0", got)
+	}
+	if got := c.Series(); len(got) != 0 {
+		t.Errorf("Series() with no trades = %v, want empty", got)
+	}
+
 	t1 := time.Date(2025, 9, 22, 0, 0, 0, 0, time.UTC)
 	t2 := t1.Add(time.Second)
 	t3 := t2.Add(time.Second)

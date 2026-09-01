@@ -2,11 +2,14 @@ package indicators
 
 import "github.com/morteza-sakifard/market-data-lab/internal/trade"
 
+// VWAP computes the volume-weighted average price:
+// VWAP = Σ(Price × Size) / Σ(Size)
 type VWAP struct {
 	sumPV float64
 	sumV  float64
 }
 
+// Add incorporates one trade into the running VWAP.
 func (v *VWAP) Add(t trade.Trade) {
 	v.sumPV += t.Price * float64(t.Size)
 	v.sumV += float64(t.Size)
