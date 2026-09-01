@@ -22,8 +22,10 @@ func main() {
 		log.Fatalf("Failed to read file: %v", err)
 	}
 
+	tradeReader := mbp1.NewTradeReader(reader)
+
 	for {
-		_, err := reader.Read()
+		_, err := tradeReader.Read()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				break
@@ -32,5 +34,6 @@ func main() {
 		}
 	}
 
-	fmt.Printf("Count rows: %d\n", reader.Row())
+	fmt.Printf("Total rows: %d\n", reader.Row())
+	fmt.Printf("Trade rows: %d\n", tradeReader.Row())
 }
