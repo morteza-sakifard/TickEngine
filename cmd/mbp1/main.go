@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/morteza-sakifard/market-data-lab/internal/mbp1"
+	"github.com/morteza-sakifard/market-data-lab/internal/trade"
 )
 
 func main() {
@@ -22,18 +23,28 @@ func main() {
 		log.Fatalf("Failed to read file: %v", err)
 	}
 
-	tradeReader := mbp1.NewTradeReader(reader)
+	stream := trade.NewReader(mbp1.NewTradeReader(reader))
 
+	var buyVol, sellVol uint32
 	for {
-		_, err := tradeReader.Read()
+		t, err := stream.Read()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			log.Fatalf("Failed to read row: %v", err)
+			log.Fatalf("Failed to read trade: %v", err)
+		}
+
+		switch t.Side {
+		case trade.Buy:
+			buyVol += t.Size
+		case trade.Sell:
+			sellVol += t.Size
 		}
 	}
 
 	fmt.Printf("Total rows: %d\n", reader.Row())
-	fmt.Printf("Trade rows: %d\n", tradeReader.Row())
+	fmt.Printf("Trade rows: %d\n", stream.Row())
+	fmt.Printf("Buy volume:  %d\n", buyVol)
+	fmt.Printf("Sell volume: %d\n", sellVol)
 }
