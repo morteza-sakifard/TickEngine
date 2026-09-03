@@ -85,7 +85,7 @@ type statics struct {
 	offTick   uint
 	priceFail uint
 
-	// Action == ActionTrade
+	// Fields below apply only to records where Action == ActionTrade.
 	trades          uint
 	tradeSideCounts map[side]uint
 

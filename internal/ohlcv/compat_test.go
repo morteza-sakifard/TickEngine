@@ -10,11 +10,9 @@ import (
 	"github.com/morteza-sakifard/market-data-lab/internal/trade"
 )
 
-// Test 12 — existing analytics remain functional. The same trades (each
-// now carrying both Time and TsRecv) feed the pre-Step-11
-// indicators.Pipeline and the new ohlcv.Builder side by side, proving that
-// adding Trade.TsRecv and the two new packages leaves VWAP, Delta, CVD,
-// Volume Profile, Footprint, and TPO working exactly as before.
+// Confirms the existing indicators.Pipeline still works unchanged now that
+// the same trades also feed the new ohlcv.Builder: VWAP, Delta, CVD, Volume
+// Profile, Footprint, and TPO all match their pre-existing expectations.
 func TestExistingAnalyticsStillWork(t *testing.T) {
 	loc, err := time.LoadLocation("America/Chicago")
 	if err != nil {

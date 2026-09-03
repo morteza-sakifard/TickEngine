@@ -18,11 +18,10 @@ func ctTime(t *testing.T, y int, m time.Month, d, hh, mm, ss int) time.Time {
 	return time.Date(y, m, d, hh, mm, ss, 0, mustChicago(t))
 }
 
-// Test 5 — RTH classification.
 func TestClassify_RTH(t *testing.T) {
 	cal := Calendar{Location: mustChicago(t), Schedule: ESRegularSchedule()}
 
-	// Tuesday 2025-09-23, 10:00 CT is inside RTH (08:30-15:15).
+	// Tuesday 10:00 CT is inside RTH (08:30-15:15).
 	trd, sess := cal.Classify(ctTime(t, 2025, time.September, 23, 10, 0, 0))
 	if sess != RTH {
 		t.Fatalf("session = %v, want RTH", sess)
@@ -32,7 +31,6 @@ func TestClassify_RTH(t *testing.T) {
 	}
 }
 
-// Test 6 — ETH classification.
 func TestClassify_ETH(t *testing.T) {
 	cal := Calendar{Location: mustChicago(t), Schedule: ESRegularSchedule()}
 
@@ -57,7 +55,7 @@ func TestClassify_ETH(t *testing.T) {
 	}
 }
 
-// Test 7 — RTH/ETH boundary: half-open [RthOpen, RthClose).
+// Half-open boundary: [RTHOpen, RTHClose).
 func TestClassify_RTHBoundary(t *testing.T) {
 	cal := Calendar{Location: mustChicago(t), Schedule: ESRegularSchedule()}
 
@@ -75,14 +73,9 @@ func TestClassify_RTHBoundary(t *testing.T) {
 	}
 }
 
-// Test 8 — trading date does not always equal calendar date.
-//
-// CME's own Globex glossary defines it this way: "The start of the CME
-// Globex session usually occurs in the afternoon or evening, and marks the
-// beginning of the next trading day. For example, orders entered during
-// Sunday's evening session are dated for and cleared on Monday." So an
-// evening trade (calendar date still "today") already belongs to
-// tomorrow's trading date.
+// CME's Globex glossary: an evening session "marks the beginning of the
+// next trading day," so an evening trade's trading date is tomorrow's,
+// even though its calendar date is still "today".
 func TestClassify_TradingDateCrossesCalendarDate(t *testing.T) {
 	cal := Calendar{Location: mustChicago(t), Schedule: ESRegularSchedule()}
 
@@ -100,8 +93,8 @@ func TestClassify_TradingDateCrossesCalendarDate(t *testing.T) {
 	}
 }
 
-// Test 9 — maintenance break and weekend gaps classify as Closed, with no
-// trading date, rather than being attributed to either neighboring date.
+// Closed gaps get no trading date, rather than being attributed to either
+// neighboring date.
 func TestClassify_ClosedGaps(t *testing.T) {
 	cal := Calendar{Location: mustChicago(t), Schedule: ESRegularSchedule()}
 
@@ -118,7 +111,6 @@ func TestClassify_ClosedGaps(t *testing.T) {
 	}
 }
 
-// Test 10 — special schedule overrides the regular weekly template.
 func TestHoursFor_SpecialScheduleOverridesRegularDay(t *testing.T) {
 	cal := Calendar{Location: mustChicago(t), Schedule: ESRegularSchedule()}
 
@@ -141,9 +133,8 @@ func TestHoursFor_SpecialScheduleOverridesRegularDay(t *testing.T) {
 	}
 }
 
-// Test 11 — DST: America/Chicago session calculations stay correct across
-// the daylight-saving transitions, using only time.LoadLocation/time.Date
-// (no manual DST rule in this codebase).
+// Relies entirely on time.LoadLocation/time.Date for correctness; this
+// codebase has no manual DST rule.
 func TestClassify_DaylightSavingTransitions(t *testing.T) {
 	loc := mustChicago(t)
 	cal := Calendar{Location: loc, Schedule: ESRegularSchedule()}

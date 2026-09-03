@@ -111,10 +111,9 @@ func TestBuilder_MaintenanceGapDoesNotCorruptNextBar(t *testing.T) {
 	}
 }
 
-// This is the bug you found: Bars() must be a read-only snapshot. Calling it
-// mid-bucket must not close the open bucket - otherwise a later trade in that
-// same bucket starts a second Bar for a bucket that a mere read had already
-// "closed".
+// Regression test: Bars() must be a read-only snapshot. Calling it mid-bucket
+// must not close the open bucket, or a later trade in the same bucket would
+// start a second Bar for a bucket a read had already "closed".
 func TestBuilder_BarsDoesNotCloseOpenBucket(t *testing.T) {
 	b := Builder{Symbol: "ESZ5", Interval: 5 * time.Minute, Calendar: testCalendar(t)}
 

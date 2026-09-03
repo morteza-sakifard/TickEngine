@@ -9,7 +9,7 @@ import (
 	"github.com/morteza-sakifard/market-data-lab/internal/trade"
 )
 
-// Example traces one trade through every Step 11 stage: ts_recv -> local
+// Example traces one trade through the full pipeline: ts_recv -> local
 // time -> trading date -> session -> bucket start -> OHLCV. Run with
 // `go test ./internal/ohlcv/ -run Example -v` to see it end to end.
 func Example() {
