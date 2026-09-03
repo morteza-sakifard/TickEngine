@@ -12,7 +12,11 @@ dist/
 
 # --- Cursor / VS Code Configuration ---
 .idea/
-.cursor/
+.cursor/*
+!.cursor/skills/
+!.cursor/skills/**
+!.cursor/rules/
+!.cursor/rules/**
 .vscode/
 !.vscode/settings.json
 !.vscode/tasks.json

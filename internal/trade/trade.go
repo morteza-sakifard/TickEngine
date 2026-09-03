@@ -37,7 +37,7 @@ func FromRecord(rec mbp1.Record) (Trade, error) {
 	}
 
 	return Trade{
-		Time:  rec.TsEvent,
+		Time:  rec.TsRecv,
 		Price: rec.Price,
 		Size:  rec.Size,
 		Side:  side,
