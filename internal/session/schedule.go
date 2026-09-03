@@ -7,10 +7,11 @@ type Clock struct {
 }
 
 type DayTemplate struct {
-	Closed            bool
-	EthOpenDayOffset  int
-	RTHOpen, RTHClose Clock
-	ETHOpen, ETHClose Clock
+	Closed              bool
+	EthOpenDayOffset    int
+	RTHOpen, RTHClose   Clock
+	ETHOpen, ETHClose   Clock
+	HaltOpen, HaltClose Clock // zero value (both unset) means no halt that day
 }
 
 type CivilDate struct {
@@ -47,11 +48,15 @@ func (s ProductSchedule) HoursFor(tradingDate time.Time) Hours {
 		y, m, d := date.Date()
 		return time.Date(y, m, d, c.Hour, c.Min, 0, 0, loc)
 	}
-	return Hours{
+	h := Hours{
 		ETHOpen:  at(tradingDate.AddDate(0, 0, tmpl.EthOpenDayOffset), tmpl.ETHOpen),
 		ETHClose: at(tradingDate, tmpl.ETHClose),
 		RTHOpen:  at(tradingDate, tmpl.RTHOpen),
 		RTHClose: at(tradingDate, tmpl.RTHClose),
 	}
-
+	if tmpl.HaltOpen != (Clock{}) || tmpl.HaltClose != (Clock{}) {
+		h.HaltOpen = at(tradingDate, tmpl.HaltOpen)
+		h.HaltClose = at(tradingDate, tmpl.HaltClose)
+	}
+	return h
 }

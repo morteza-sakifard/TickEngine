@@ -22,9 +22,10 @@ func (s Session) String() string {
 }
 
 type Hours struct {
-	Closed            bool
-	RTHOpen, RTHClose time.Time
-	ETHOpen, ETHClose time.Time
+	Closed              bool
+	RTHOpen, RTHClose   time.Time
+	ETHOpen, ETHClose   time.Time
+	HaltOpen, HaltClose time.Time // zero value means no halt that day
 }
 
 type Schedule interface {
@@ -44,6 +45,9 @@ func (c Calendar) Classify(t time.Time) (tradingDate time.Time, sess Session) {
 	for _, candidate := range candidates {
 		h := c.Schedule.HoursFor(candidate)
 		if h.Closed {
+			continue
+		}
+		if !h.HaltOpen.IsZero() && !local.Before(h.HaltOpen) && local.Before(h.HaltClose) {
 			continue
 		}
 		if !local.Before(h.RTHOpen) && local.Before(h.RTHClose) {

@@ -95,7 +95,7 @@ func TestBuilder_EmptyBucketProducesNoBar(t *testing.T) {
 func TestBuilder_MaintenanceGapDoesNotCorruptNextBar(t *testing.T) {
 	b := Builder{Symbol: "ESZ5", Interval: 5 * time.Minute, Calendar: testCalendar(t)}
 
-	b.Add(trade.Trade{Time: utcTime(2025, time.September, 23, 20, 14, 30), Price: 6700, Size: 1}) // 15:14:30 CT, last RTH bucket
+	b.Add(trade.Trade{Time: utcTime(2025, time.September, 23, 20, 14, 30), Price: 6700, Size: 1}) // 15:14:30 CT, last pre-maintenance ETH bucket
 	b.Add(trade.Trade{Time: utcTime(2025, time.September, 23, 22, 6, 0), Price: 6750, Size: 5})   // 17:06:00 CT, after the maintenance break
 	b.Flush()
 
