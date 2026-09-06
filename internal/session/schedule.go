@@ -1,6 +1,10 @@
 package session
 
-import "time"
+import (
+	"time"
+
+	"github.com/morteza-sakifard/market-data-lab/internal/core"
+)
 
 type Clock struct {
 	Hour, Min int
@@ -14,28 +18,13 @@ type DayTemplate struct {
 	HaltOpen, HaltClose Clock // zero value (both unset) means no halt that day
 }
 
-type CivilDate struct {
-	Year  int
-	Month time.Month
-	Day   int
-}
-
-func NewCivilDate(year int, Month time.Month, day int) CivilDate {
-	return CivilDate{Year: year, Month: Month, Day: day}
-}
-
-func civilDateOf(t time.Time) CivilDate {
-	y, m, d := t.Date()
-	return CivilDate{Year: y, Month: m, Day: d}
-}
-
 type ProductSchedule struct {
 	Weekly    [7]DayTemplate
-	Overrides map[CivilDate]DayTemplate
+	Overrides map[core.CivilDate]DayTemplate
 }
 
 func (s ProductSchedule) HoursFor(tradingDate time.Time) Hours {
-	tmpl, ok := s.Overrides[civilDateOf(tradingDate)]
+	tmpl, ok := s.Overrides[core.CivilDateOf(tradingDate)]
 	if !ok {
 		tmpl = s.Weekly[tradingDate.Weekday()]
 	}

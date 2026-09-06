@@ -1,6 +1,10 @@
 package session
 
-import "time"
+import (
+	"time"
+
+	"github.com/morteza-sakifard/market-data-lab/internal/core"
+)
 
 var weekDays = []time.Weekday{time.Monday, time.Tuesday, time.Wednesday, time.Thursday, time.Friday}
 
@@ -30,13 +34,13 @@ func ESRegularSchedule() ProductSchedule {
 
 	return ProductSchedule{
 		Weekly: weekly,
-		Overrides: map[CivilDate]DayTemplate{
+		Overrides: map[core.CivilDate]DayTemplate{
 			// Christmas Day: exchange fully closed.
-			NewCivilDate(2025, time.December, 25): {Closed: true},
+			core.NewCivilDate(2025, time.December, 25): {Closed: true},
 			// Thanksgiving Day: exchange fully closed, same as Christmas.
-			NewCivilDate(2025, time.November, 27): {Closed: true},
+			core.NewCivilDate(2025, time.November, 27): {Closed: true},
 			// Day after Thanksgiving: early close, no afternoon RTH or evening ETH.
-			NewCivilDate(2025, time.November, 28): {
+			core.NewCivilDate(2025, time.November, 28): {
 				EthOpenDayOffset: -1,
 				ETHOpen:          Clock{17, 0},
 				ETHClose:         Clock{12, 15},
@@ -49,7 +53,7 @@ func ESRegularSchedule() ProductSchedule {
 			// 15:00-16:00 CT post-RTH ETH. See cmegroup.com's End-of-Month
 			// Settlement Procedures FAQ. Add the remaining 11 months'
 			// last-trading-day dates here the same way if needed.
-			NewCivilDate(2025, time.December, 31): {
+			core.NewCivilDate(2025, time.December, 31): {
 				EthOpenDayOffset: -1,
 				ETHOpen:          Clock{17, 0},
 				ETHClose:         Clock{16, 0},
@@ -65,7 +69,7 @@ func ESRegularSchedule() ProductSchedule {
 func NQRegularSchedule() ProductSchedule {
 	return ProductSchedule{
 		Weekly:    ESRegularSchedule().Weekly,
-		Overrides: map[CivilDate]DayTemplate{
+		Overrides: map[core.CivilDate]DayTemplate{
 			// NQ-specific holiday/early-close overrides go here.
 		},
 	}

@@ -38,3 +38,4 @@ dist/
 .env.local
 .env.*.local
 *.secret
+*.md
