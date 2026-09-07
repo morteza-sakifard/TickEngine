@@ -11,6 +11,8 @@ import (
 	// machines without a system zoneinfo, which includes Windows once the
 	// binary leaves this GOROOT.
 	_ "time/tzdata"
+
+	"github.com/morteza-sakifard/market-data-lab/internal/core"
 )
 
 func main() {
@@ -56,6 +58,13 @@ func main() {
 	elapsed := time.Since(start)
 
 	c.Report(os.Stdout)
+
+	agg, err := runAggressorCheck(*data, core.ESZ5(), *limit)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println()
+	reportAggressor(os.Stdout, agg)
 
 	rate := 0.0
 	if s := elapsed.Seconds(); s > 0 {
