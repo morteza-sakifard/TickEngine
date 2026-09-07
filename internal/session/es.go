@@ -1,10 +1,6 @@
 package session
 
-import (
-	"time"
-
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
-)
+import "time"
 
 var weekDays = []time.Weekday{time.Monday, time.Tuesday, time.Wednesday, time.Thursday, time.Friday}
 
@@ -33,44 +29,16 @@ func ESRegularSchedule() ProductSchedule {
 	weekly[time.Sunday] = DayTemplate{Closed: true}
 
 	return ProductSchedule{
-		Weekly: weekly,
-		Overrides: map[core.CivilDate]DayTemplate{
-			// Christmas Day: exchange fully closed.
-			core.NewCivilDate(2025, time.December, 25): {Closed: true},
-			// Thanksgiving Day: exchange fully closed, same as Christmas.
-			core.NewCivilDate(2025, time.November, 27): {Closed: true},
-			// Day after Thanksgiving: early close, no afternoon RTH or evening ETH.
-			core.NewCivilDate(2025, time.November, 28): {
-				EthOpenDayOffset: -1,
-				ETHOpen:          Clock{17, 0},
-				ETHClose:         Clock{12, 15},
-				RTHOpen:          Clock{8, 30},
-				RTHClose:         Clock{12, 15},
-			},
-			// Last trading day of December (month/quarter/year-end index
-			// fixing): CME extends RTH to 16:00 CT with an embedded
-			// 15:15-15:30 CT halt, instead of the normal continuous
-			// 15:00-16:00 CT post-RTH ETH. See cmegroup.com's End-of-Month
-			// Settlement Procedures FAQ. Add the remaining 11 months'
-			// last-trading-day dates here the same way if needed.
-			core.NewCivilDate(2025, time.December, 31): {
-				EthOpenDayOffset: -1,
-				ETHOpen:          Clock{17, 0},
-				ETHClose:         Clock{16, 0},
-				RTHOpen:          Clock{8, 30},
-				RTHClose:         Clock{16, 0},
-				HaltOpen:         Clock{15, 15},
-				HaltClose:        Clock{15, 30},
-			},
-		},
+		Weekly:    weekly,
+		Overrides: equityIndexOverrides(),
 	}
 }
 
 func NQRegularSchedule() ProductSchedule {
-	return ProductSchedule{
-		Weekly:    ESRegularSchedule().Weekly,
-		Overrides: map[core.CivilDate]DayTemplate{
-			// NQ-specific holiday/early-close overrides go here.
-		},
-	}
+	// NQ trades the same CME Equity Index hours as ES, including the
+	// same holidays, early closes, and month-end halt. A later
+	// product-specific exception goes in NQ's own Overrides map, not
+	// by forking the weekly template.
+	es := ESRegularSchedule()
+	return ProductSchedule{Weekly: es.Weekly, Overrides: es.Overrides}
 }

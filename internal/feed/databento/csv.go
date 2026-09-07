@@ -377,7 +377,7 @@ func parsePriceNano(s string) (int64, error) {
 		whole = whole*10 + uint64(c-'0')
 	}
 	var frac uint64
-	for i := 0; i < 9; i++ {
+	for i := range 9 {
 		var d uint64
 		if i < len(fracPart) {
 			c := fracPart[i]
