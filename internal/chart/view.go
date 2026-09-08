@@ -1,0 +1,54 @@
+package chart
+
+import (
+	"time"
+
+	"github.com/morteza-sakifard/market-data-lab/internal/aggregation"
+	"github.com/morteza-sakifard/market-data-lab/internal/core"
+	"github.com/morteza-sakifard/market-data-lab/internal/session"
+)
+
+// View is everything needed to draw one page. It has no reference to
+// a feed, a clock, or the replay engine — RenderSVG is a pure
+// function of this value plus Options. That is why a golden-file
+// test can lock the pixels: same View, same bytes.
+//
+// Overlays and Panels are part of the model from this step so step 10
+// does not change View's shape. RenderSVG ignores them until then.
+type View struct {
+	Instrument core.Instrument
+	Header     Header
+	Bars       []aggregation.Bar
+	Overlays   []Series
+	Panels     []Panel
+}
+
+// Header is the title strip. Empty Symbol falls back to
+// Instrument.Symbol; zero TradingDate falls back to the first bar.
+type Header struct {
+	Symbol      string
+	TradingDate time.Time
+	Session     session.Session
+}
+
+// Series is a polyline aligned with View.Bars by index (VWAP and
+// similar). Length may be shorter than Bars; extra bars are skipped.
+type Series struct {
+	Name   string
+	Values []core.Ticks
+}
+
+// Panel is a secondary plot under the price pane (CVD, volume, delta).
+type Panel struct {
+	Name   string
+	Series []Series
+}
+
+// Options is how to draw, not what to draw. Location is the calendar
+// timezone for axis labels — UTC would print 13:30 for an 08:30 CT
+// RTH open, which is the bug this field exists to prevent. A nil
+// Location uses each bar's own Start location.
+type Options struct {
+	Width, Height int
+	Location      *time.Location
+}
