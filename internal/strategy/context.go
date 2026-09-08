@@ -47,6 +47,13 @@ func NewRuntime(inst core.Instrument, log io.Writer) *Runtime {
 	return &Runtime{inst: inst, log: log, venue: execution.NewVenue(execution.Fees{})}
 }
 
+func (rt *Runtime) SetLatency(l execution.Latency) error {
+	if rt == nil || rt.venue == nil {
+		return fmt.Errorf("strategy: nil runtime")
+	}
+	return rt.venue.SetLatency(l)
+}
+
 func (rt *Runtime) SetFees(fees execution.Fees) error {
 	if rt == nil || rt.venue == nil {
 		return fmt.Errorf("strategy: nil runtime")
@@ -147,4 +154,7 @@ func (rt *Runtime) Observe(ev *marketdata.Event) {
 		rt.ns = ev.TsRecv
 	}
 	rt.cache.onEvent(ev)
+	if rt.venue != nil {
+		rt.venue.Sync(rt.ns)
+	}
 }

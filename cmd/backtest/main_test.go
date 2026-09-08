@@ -45,7 +45,7 @@ func TestBuyHoldOneTick(t *testing.T) {
 		{Kind: marketdata.KindQuote, TsRecv: 2, Quote: marketdata.Quote{BidPx: x + 1, AskPx: x + 2}},
 	}}
 	var buf bytes.Buffer
-	pos, _, err := runBacktest(src, core.ESZ5(), execution.Fees{}, &buf)
+	pos, _, err := runBacktest(src, core.ESZ5(), execution.Fees{}, execution.Latency{}, &buf)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +65,7 @@ func TestBuyHoldFees(t *testing.T) {
 		{Kind: marketdata.KindQuote, TsRecv: 1, Quote: marketdata.Quote{BidPx: x - 1, AskPx: x}},
 	}}
 	fees := execution.Fees{CommissionCents: 100, FeeCents: 12}
-	pos, _, err := runBacktest(src, core.ESZ5(), fees, io.Discard)
+	pos, _, err := runBacktest(src, core.ESZ5(), fees, execution.Latency{}, io.Discard)
 	if err != nil {
 		t.Fatal(err)
 	}

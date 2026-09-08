@@ -28,6 +28,8 @@ func main() {
 		symbol     = flag.String("symbol", "", "contract symbol, e.g. ESZ5 (required)")
 		commission = flag.Int64("commission", 0, "commission per contract per fill, USD cents")
 		fee        = flag.Int64("fee", 0, "exchange fee per contract per fill, USD cents")
+		entry      = flag.Int64("entry-ns", 0, "order entry latency, nanoseconds")
+		response   = flag.Int64("response-ns", 0, "fill response latency, nanoseconds")
 	)
 	flag.Parse()
 
@@ -55,7 +57,7 @@ func main() {
 	pos, unreal, err := runBacktest(dec, inst, execution.Fees{
 		CommissionCents: *commission,
 		FeeCents:        *fee,
-	}, os.Stdout)
+	}, execution.Latency{Entry: *entry, Response: *response}, os.Stdout)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -72,9 +74,12 @@ func lookupInstrument(symbol string) (core.Instrument, error) {
 	return inst, nil
 }
 
-func runBacktest(src feed.Source, inst core.Instrument, fees execution.Fees, w io.Writer) (portfolio.Position, int64, error) {
+func runBacktest(src feed.Source, inst core.Instrument, fees execution.Fees, lat execution.Latency, w io.Writer) (portfolio.Position, int64, error) {
 	rt := strategy.NewRuntime(inst, w)
 	if err := rt.SetFees(fees); err != nil {
+		return portfolio.Position{}, 0, err
+	}
+	if err := rt.SetLatency(lat); err != nil {
 		return portfolio.Position{}, 0, err
 	}
 	if err := strategy.Run(src, &buyHold{}, rt); err != nil {

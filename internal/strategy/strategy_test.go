@@ -368,6 +368,49 @@ func (s *oneTick) OnEvent(ctx Context, ev *marketdata.Event) error {
 	return nil
 }
 
+func TestZeroLatencySamePnLAsStep20(t *testing.T) {
+	const x core.Ticks = 26800
+	src := func() Source {
+		return &sliceSrc{evs: []marketdata.Event{
+			{Kind: marketdata.KindQuote, TsRecv: 1, Quote: marketdata.Quote{BidPx: x - 1, AskPx: x}},
+			{Kind: marketdata.KindQuote, TsRecv: 2, Quote: marketdata.Quote{BidPx: x + 1, AskPx: x + 2}},
+		}}
+	}
+	fees := execution.Fees{CommissionCents: 100, FeeCents: 12}
+	run := func(lat execution.Latency) portfolio.Position {
+		t.Helper()
+		rt := NewRuntime(core.ESZ5(), nil)
+		if err := rt.SetFees(fees); err != nil {
+			t.Fatal(err)
+		}
+		if err := rt.SetLatency(lat); err != nil {
+			t.Fatal(err)
+		}
+		if err := Run(src(), &oneTick{}, rt); err != nil {
+			t.Fatal(err)
+		}
+		return rt.Position()
+	}
+	zero := run(execution.Latency{})
+	want := portfolio.CentsPerTick(core.ESZ5()) - 2*(fees.CommissionCents+fees.FeeCents)
+	if zero.Qty != 0 || zero.Realized != want {
+		t.Fatalf("zero latency qty=%d realized=%d, want step-20 %d", zero.Qty, zero.Realized, want)
+	}
+}
+
+func TestOnEventClockIsTsRecv(t *testing.T) {
+	p := &clockProbe{}
+	src := &sliceSrc{evs: []marketdata.Event{{
+		Kind: marketdata.KindTrade, TsEvent: 5, TsRecv: 100, TsInDelta: 40,
+	}}}
+	if err := Run(src, p, NewRuntime(core.ESZ5(), nil)); err != nil {
+		t.Fatal(err)
+	}
+	if len(p.nows) != 1 || p.nows[0] != 100 {
+		t.Fatalf("strategy clock = %v, want TsRecv 100 (feed delay already applied)", p.nows)
+	}
+}
+
 func TestBuyXSellXPlusOneTick(t *testing.T) {
 	const x core.Ticks = 26800
 	src := &sliceSrc{evs: []marketdata.Event{

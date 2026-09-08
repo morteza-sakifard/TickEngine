@@ -13,10 +13,14 @@ import (
 type Venue struct {
 	nextID  OrderID
 	fees    Fees
+	lat     Latency
+	now     int64
 	quote   marketdata.Quote
 	hasQ    bool
 	model   QueueModel
 	inbox   []Order
+	delayed []delayedOrder
+	outbox  []delayedEvent
 	working []resting
 }
 
@@ -33,6 +37,24 @@ func (v *Venue) SetFees(fees Fees) error {
 	}
 	v.fees = fees
 	return nil
+}
+
+func (v *Venue) SetLatency(l Latency) error {
+	if v == nil {
+		return fmt.Errorf("execution: nil venue")
+	}
+	if err := l.validate(); err != nil {
+		return err
+	}
+	v.lat = l
+	return nil
+}
+
+func (v *Venue) Sync(ts int64) {
+	if v == nil || ts <= v.now {
+		return
+	}
+	v.now = ts
 }
 
 func (v *Venue) SetQuote(q marketdata.Quote) {
@@ -55,7 +77,12 @@ func (v *Venue) Enqueue(o Order) (OrderID, error) {
 	}
 	v.nextID++
 	o.ID = v.nextID
-	v.inbox = append(v.inbox, o)
+	ready := v.now + v.lat.Entry
+	if v.lat.Entry == 0 {
+		v.inbox = append(v.inbox, o)
+	} else {
+		v.delayed = append(v.delayed, delayedOrder{order: o, ready: ready})
+	}
 	return o.ID, nil
 }
 
@@ -64,6 +91,12 @@ func (v *Venue) Enqueue(o Order) (OrderID, error) {
 func (v *Venue) Cancel(id OrderID) error {
 	if v == nil {
 		return fmt.Errorf("execution: nil venue")
+	}
+	for i, d := range v.delayed {
+		if d.order.ID == id {
+			v.delayed = append(v.delayed[:i], v.delayed[i+1:]...)
+			return nil
+		}
 	}
 	for i, o := range v.inbox {
 		if o.ID == id {
@@ -86,22 +119,54 @@ func (v *Venue) MatchResting(ev *marketdata.Event) []OrderEvent {
 	if v == nil || ev == nil {
 		return nil
 	}
+	ts := ev.TsRecv
+	v.Sync(ts)
+	var raw []OrderEvent
 	switch ev.Kind {
 	case marketdata.KindTrade:
-		return v.onTrade(ev)
+		raw = v.onTrade(ev)
 	case marketdata.KindQuote:
 		v.applyQuote(ev.Quote)
-		return nil
-	default:
-		return nil
 	}
+	return v.holdOrEmit(raw, ts)
 }
 
-// Settle fills market and marketable-limit orders at the touch.
-// A non-marketable limit joins the queue and emits nothing until
-// MatchResting fills it or Cancel removes it. No quote rejects.
+// Settle releases orders whose entry delay has elapsed, fills
+// market and marketable-limit orders at the touch, and holds
+// fills until response delay elapses. A non-marketable limit
+// joins the queue. No quote rejects.
 func (v *Venue) Settle(ts int64) []OrderEvent {
-	if v == nil || len(v.inbox) == 0 {
+	if v == nil {
+		return nil
+	}
+	v.Sync(ts)
+	v.releaseDue(ts)
+	return v.holdOrEmit(v.settleInbox(ts), ts)
+}
+
+// Flush fires every delayed submit and fill. The tape has ended,
+// so there is no later print to wait for.
+func (v *Venue) Flush() []OrderEvent {
+	if v == nil {
+		return nil
+	}
+	for _, d := range v.delayed {
+		v.inbox = append(v.inbox, d.order)
+	}
+	v.delayed = nil
+	out := v.settleInbox(v.now)
+	for _, d := range v.outbox {
+		out = append(out, d.ev)
+	}
+	v.outbox = nil
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func (v *Venue) settleInbox(ts int64) []OrderEvent {
+	if len(v.inbox) == 0 {
 		return nil
 	}
 	inbox := v.inbox

@@ -62,7 +62,10 @@ func Run(src Source, s Strategy, rt *Runtime) error {
 			if err := s.OnStop(rt); err != nil {
 				return err
 			}
-			return rt.drain(s)
+			if err := rt.drain(s); err != nil {
+				return err
+			}
+			return rt.apply(s, rt.venue.Flush())
 		}
 		if err != nil {
 			return err
