@@ -12,6 +12,7 @@ import (
 	"github.com/morteza-sakifard/market-data-lab/internal/core"
 	"github.com/morteza-sakifard/market-data-lab/internal/feed/databento"
 	"github.com/morteza-sakifard/market-data-lab/internal/marketdata"
+	"github.com/morteza-sakifard/market-data-lab/internal/orderflow"
 	"github.com/morteza-sakifard/market-data-lab/internal/session"
 )
 
@@ -149,6 +150,15 @@ func TestRenderFixtureETH(t *testing.T) {
 	if !strings.Contains(svg, "2025-09-22") {
 		t.Fatalf("header missing trading date")
 	}
+	if !strings.Contains(svg, "<polyline") {
+		t.Fatal("ETH fixture SVG missing VWAP/CVD polyline")
+	}
+	if !strings.Contains(svg, "CVD") {
+		t.Fatal("ETH fixture SVG missing CVD panel")
+	}
+	if !strings.Contains(svg, "stroke-dasharray") {
+		t.Fatal("ETH fixture SVG missing volume-profile POC line")
+	}
 }
 
 func TestRenderNoTradesIsError(t *testing.T) {
@@ -169,5 +179,97 @@ func TestRenderNoTradesIsError(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("want error when no trades match the requested date/session")
+	}
+}
+
+func rthTrade(t *testing.T, cal session.Calendar, hour, min int, px, qty int64, side core.Side) marketdata.Event {
+	t.Helper()
+	ts := time.Date(2025, time.September, 23, hour, min, 0, 0, cal.Location)
+	return marketdata.Event{
+		Kind:    marketdata.KindTrade,
+		TsEvent: ts.UnixNano(),
+		Trade:   marketdata.Trade{Px: core.Ticks(px), Qty: core.Qty(qty), Aggressor: side},
+	}
+}
+
+func TestSampleFlowVWAPAndCVD(t *testing.T) {
+	cal := esCal(t)
+	trades := []marketdata.Event{
+		rthTrade(t, cal, 8, 30, 26800, 5, core.SideBid),
+		rthTrade(t, cal, 8, 31, 26804, 2, core.SideAsk),
+		rthTrade(t, cal, 8, 36, 26802, 1, core.SideBid),
+	}
+	agg, err := aggregation.New(aggregation.BarSpec{
+		Kind:     aggregation.KindTime,
+		Interval: 5 * time.Minute,
+		Anchor:   aggregation.AnchorRTHOpen,
+		Location: cal.Location,
+		Sessions: session.SetRTH,
+	}, cal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range trades {
+		agg.Add(&trades[i])
+	}
+	agg.Flush()
+	bars := agg.Bars()
+	if len(bars) != 2 {
+		t.Fatalf("bars = %d, want 2", len(bars))
+	}
+
+	vwap, cvd := sampleFlow(trades, bars, cal)
+
+	// Independent Σpx*qty/Σqty, truncated: (26800*5+26804*2)/7 = 26801
+	// then +26802 / 8 = 26801.
+	if vwap[0] != 26801 || vwap[1] != 26801 {
+		t.Fatalf("VWAP = %v, want [26801 26801]", vwap)
+	}
+	lo, hi := bars[0].Low, bars[0].High
+	for _, b := range bars[1:] {
+		if b.Low < lo {
+			lo = b.Low
+		}
+		if b.High > hi {
+			hi = b.High
+		}
+	}
+	for i, px := range vwap {
+		if px < lo || px > hi {
+			t.Fatalf("vwap[%d]=%d outside session [%d, %d]", i, px, lo, hi)
+		}
+	}
+
+	var cum core.Qty
+	for i, b := range bars {
+		cum += b.BuyVolume - b.SellVolume
+		if core.Ticks(cum) != cvd[i] {
+			t.Fatalf("cvd[%d]=%d, want cumsum of bar delta %d", i, cvd[i], cum)
+		}
+	}
+	if cvd[0] != 3 || cvd[1] != 4 {
+		t.Fatalf("CVD = %v, want [3 4]", cvd)
+	}
+
+	var vp orderflow.VolumeProfile
+	for i := range trades {
+		vp.OnTrade(&trades[i])
+	}
+	prof := snapshotProfile(&vp)
+	if prof == nil {
+		t.Fatal("expected a profile")
+	}
+	if prof.VAL > prof.POC || prof.POC > prof.VAH {
+		t.Fatalf("VAL ≤ POC ≤ VAH violated: %d %d %d", prof.VAL, prof.POC, prof.VAH)
+	}
+	if prof.POC < lo || prof.POC > hi {
+		t.Fatalf("POC %d outside session [%d, %d]", prof.POC, lo, hi)
+	}
+	var sum core.Qty
+	for _, lv := range prof.Levels {
+		sum += lv.Volume
+	}
+	if sum != vp.Total() {
+		t.Fatalf("profile levels sum %d != total %d", sum, vp.Total())
 	}
 }

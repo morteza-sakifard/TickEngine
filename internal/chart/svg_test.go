@@ -197,3 +197,131 @@ func TestRenderSVGRejectsNegativeSize(t *testing.T) {
 		t.Fatal("want error for negative width")
 	}
 }
+
+func TestOverlayPolylineDrawn(t *testing.T) {
+	v := basicView(t)
+	v.Overlays = []Series{{
+		Name:   "VWAP",
+		Values: []core.Ticks{26800, 26802, 26804, 26810, 26808, 26806},
+	}}
+	svg := render(t, v, Options{Location: chicago(t)})
+	if !strings.Contains(svg, "<polyline") {
+		t.Fatal("overlay missing polyline")
+	}
+	if !strings.Contains(svg, overlayColor) {
+		t.Fatalf("overlay missing stroke %s", overlayColor)
+	}
+}
+
+func TestPanelDrawnWhenPresent(t *testing.T) {
+	v := basicView(t)
+	v.Panels = []Panel{{
+		Name:   "CVD",
+		Series: []Series{{Name: "CVD", Values: []core.Ticks{3, 1, 4, 2, -1, 0}}},
+	}}
+	svg := render(t, v, Options{Location: chicago(t)})
+	if !strings.Contains(svg, "CVD") {
+		t.Fatal("panel missing CVD label")
+	}
+	if !strings.Contains(svg, "<polyline") {
+		t.Fatal("panel missing polyline")
+	}
+	if !strings.Contains(svg, zeroColor) {
+		t.Fatal("CVD panel missing zero line")
+	}
+}
+
+func TestProfileDrawnWhenPresent(t *testing.T) {
+	v := basicView(t)
+	v.Profile = &ProfileView{
+		Levels: []ProfileLevel{
+			{Price: 26800, Volume: 2},
+			{Price: 26808, Volume: 8},
+			{Price: 26816, Volume: 3},
+		},
+		POC: 26808, VAL: 26800, VAH: 26816,
+	}
+	svg := render(t, v, Options{Location: chicago(t)})
+	if !strings.Contains(svg, pocColor) {
+		t.Fatal("profile missing POC color")
+	}
+	if !strings.Contains(svg, "stroke-dasharray") {
+		t.Fatal("profile missing POC line")
+	}
+}
+
+func TestProfilePOCInSessionRange(t *testing.T) {
+	v := basicView(t)
+	lo, hi := v.Bars[0].Low, v.Bars[0].High
+	for _, b := range v.Bars[1:] {
+		if b.Low < lo {
+			lo = b.Low
+		}
+		if b.High > hi {
+			hi = b.High
+		}
+	}
+	poc := core.Ticks(26808)
+	if poc <= lo || poc >= hi {
+		t.Fatalf("test POC %d is at the session edge [%d, %d]", poc, lo, hi)
+	}
+	v.Profile = &ProfileView{
+		Levels: []ProfileLevel{
+			{Price: lo, Volume: 1},
+			{Price: poc, Volume: 9},
+			{Price: hi, Volume: 1},
+		},
+		POC: poc, VAL: lo, VAH: hi,
+	}
+	sc := newScale(v.Bars, 0, 100, 0, 100)
+	y := sc.Y(poc)
+	yLo, yHi := sc.Y(hi), sc.Y(lo)
+	if yLo > yHi {
+		yLo, yHi = yHi, yLo
+	}
+	if y <= yLo || y >= yHi {
+		t.Fatalf("POC y=%.1f at the edge of [%.1f, %.1f]", y, yLo, yHi)
+	}
+	mid := (yLo + yHi) / 2
+	if abs(y-mid) > abs(y-yLo) || abs(y-mid) > abs(y-yHi) {
+		t.Fatalf("POC y=%.1f is closer to a range edge than to mid %.1f", y, mid)
+	}
+}
+
+func abs(f float64) float64 {
+	if f < 0 {
+		return -f
+	}
+	return f
+}
+
+func TestVWAPOverlayYInsideSessionRange(t *testing.T) {
+	v := basicView(t)
+	lo, hi := v.Bars[0].Low, v.Bars[0].High
+	for _, b := range v.Bars[1:] {
+		if b.Low < lo {
+			lo = b.Low
+		}
+		if b.High > hi {
+			hi = b.High
+		}
+	}
+	vals := []core.Ticks{26800, 26802, 26804, 26810, 26808, 26806}
+	for _, px := range vals {
+		if px < lo || px > hi {
+			t.Fatalf("test VWAP %d outside session [%d, %d]", px, lo, hi)
+		}
+	}
+	v.Overlays = []Series{{Name: "VWAP", Values: vals}}
+	sc := newScale(v.Bars, 0, 100, 0, 100)
+	yLo, yHi := sc.Y(hi), sc.Y(lo) // SVG y grows down
+	if yLo > yHi {
+		yLo, yHi = yHi, yLo
+	}
+	for _, px := range vals {
+		y := sc.Y(px)
+		if y < yLo || y > yHi {
+			t.Fatalf("VWAP y=%.1f for %d outside session y [%.1f, %.1f]", y, px, yLo, yHi)
+		}
+	}
+}

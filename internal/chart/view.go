@@ -13,14 +13,31 @@ import (
 // function of this value plus Options. That is why a golden-file
 // test can lock the pixels: same View, same bytes.
 //
-// Overlays and Panels are part of the model from this step so step 10
-// does not change View's shape. RenderSVG ignores them until then.
+// Overlays and Panels are drawn when present. Empty slices keep the
+// step-8 candle layout, so testdata/golden/candles_basic.svg stays
+// valid.
 type View struct {
 	Instrument core.Instrument
 	Header     Header
 	Bars       []aggregation.Bar
 	Overlays   []Series
 	Panels     []Panel
+	Profile    *ProfileView
+}
+
+// ProfileView is the side histogram for a session volume profile.
+// Levels must already be sorted by Price; RenderSVG does not range a
+// map. A nil Profile, or one with no Levels, leaves the step-8
+// layout unchanged.
+type ProfileView struct {
+	Levels        []ProfileLevel
+	POC, VAH, VAL core.Ticks
+}
+
+// ProfileLevel is one horizontal bar of a ProfileView.
+type ProfileLevel struct {
+	Price  core.Ticks
+	Volume core.Qty
 }
 
 // Header is the title strip. Empty Symbol falls back to

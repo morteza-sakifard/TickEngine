@@ -1,7 +1,7 @@
 // Command render turns a Databento MBP-1 CSV into an SVG chart for
-// one trading date and session. It wires feed → aggregation → chart
-// and does not live in internal/: cmd is allowed to import every
-// layer. See docs/01-roadmap.md step 9.
+// one trading date and session. It wires feed → aggregation →
+// orderflow → chart and does not live in internal/: cmd is allowed
+// to import every layer. See docs/01-roadmap.md steps 9 and 10.
 package main
 
 import (
@@ -22,6 +22,7 @@ import (
 	"github.com/morteza-sakifard/market-data-lab/internal/feed"
 	"github.com/morteza-sakifard/market-data-lab/internal/feed/databento"
 	"github.com/morteza-sakifard/market-data-lab/internal/marketdata"
+	"github.com/morteza-sakifard/market-data-lab/internal/orderflow"
 	"github.com/morteza-sakifard/market-data-lab/internal/session"
 )
 
@@ -148,11 +149,13 @@ func sameCivil(a, b time.Time) bool {
 	return y1 == y2 && m1 == m2 && d1 == d2
 }
 
-// render reads src, keeps trades whose Classify trading date matches
-// spec.Date, aggregates them, and writes an SVG to w. Quotes are
-// ignored: a bar is executions, not book updates. Zero matching
-// trades is an error — a blank chart would hide a wrong --date or
-// --session rather than say so.
+// render reads src, keeps trades whose Classify trading date and
+// session match the spec, aggregates them, samples VWAP/CVD at each
+// bar, builds the session volume profile, and writes an SVG to w. Quotes are ignored: a bar is
+// executions, not book updates. Zero matching trades is an error —
+// a blank chart would hide a wrong --date or --session rather than
+// say so. The decoder reuses one Event, so each kept trade is copied
+// before it is stored.
 func render(src feed.Source, w io.Writer, inst core.Instrument, cal session.Calendar, s spec) (int, error) {
 	agg, err := aggregation.New(aggregation.BarSpec{
 		Kind:     aggregation.KindTime,
@@ -165,6 +168,7 @@ func render(src feed.Source, w io.Writer, inst core.Instrument, cal session.Cale
 		return 0, err
 	}
 
+	var trades []marketdata.Event
 	var ev marketdata.Event
 	for {
 		err := src.Next(&ev)
@@ -177,11 +181,13 @@ func render(src feed.Source, w io.Writer, inst core.Instrument, cal session.Cale
 		if ev.Kind != marketdata.KindTrade {
 			continue
 		}
-		td, _ := cal.Classify(ev.EventTime())
-		if !sameCivil(td, s.Date) {
+		td, sess := cal.Classify(ev.EventTime())
+		if !sameCivil(td, s.Date) || !s.Sessions.Contains(sess) {
 			continue
 		}
-		agg.Add(&ev)
+		kept := ev
+		trades = append(trades, kept)
+		agg.Add(&kept)
 	}
 	agg.Flush()
 	bars := agg.Bars()
@@ -190,6 +196,11 @@ func render(src feed.Source, w io.Writer, inst core.Instrument, cal session.Cale
 			inst.Symbol, s.Date.Format("2006-01-02"), s.Session)
 	}
 
+	vwap, cvd := sampleFlow(trades, bars, cal)
+	var vp orderflow.VolumeProfile
+	for i := range trades {
+		vp.OnTrade(&trades[i])
+	}
 	view := chart.View{
 		Instrument: inst,
 		Header: chart.Header{
@@ -197,10 +208,67 @@ func render(src feed.Source, w io.Writer, inst core.Instrument, cal session.Cale
 			TradingDate: s.Date,
 			Session:     s.Session,
 		},
-		Bars: bars,
+		Bars:     bars,
+		Overlays: []chart.Series{{Name: "VWAP", Values: vwap}},
+		Panels: []chart.Panel{{
+			Name:   "CVD",
+			Series: []chart.Series{{Name: "CVD", Values: cvd}},
+		}},
+		Profile: snapshotProfile(&vp),
 	}
 	if err := chart.RenderSVG(w, view, chart.Options{Location: cal.Location}); err != nil {
 		return 0, err
 	}
 	return len(bars), nil
+}
+
+// sampleFlow walks trades in TsEvent order, resets on session
+// boundaries, and snapshots VWAP and CVD after the last trade of
+// each bar. Sampling lives here because orderflow must not import
+// aggregation.
+func sampleFlow(trades []marketdata.Event, bars []aggregation.Bar, cal session.Calendar) (vwap, cvd []core.Ticks) {
+	vwap = make([]core.Ticks, len(bars))
+	cvd = make([]core.Ticks, len(bars))
+	if len(bars) == 0 {
+		return vwap, cvd
+	}
+	from, to := bars[0].Start, bars[len(bars)-1].End
+	if len(trades) > 0 {
+		if t0 := trades[0].EventTime(); t0.Before(from) {
+			from = t0
+		}
+		if t1 := trades[len(trades)-1].EventTime(); !t1.Before(to) {
+			to = t1.Add(time.Nanosecond)
+		}
+	}
+	var accVWAP orderflow.VWAP
+	var accCVD orderflow.CVD
+	o := orderflow.New(cal.Boundaries(from, to), &accVWAP, &accCVD)
+	j := 0
+	for i := range bars {
+		end := bars[i].End
+		for j < len(trades) && trades[j].EventTime().Before(end) {
+			o.OnEvent(&trades[j])
+			j++
+		}
+		vwap[i] = accVWAP.Value()
+		cvd[i] = core.Ticks(accCVD.Value())
+	}
+	return vwap, cvd
+}
+
+// snapshotProfile copies a session profile into the chart DTO.
+// Chart does not import orderflow: Levels is already sorted, so
+// RenderSVG never ranges a map.
+func snapshotProfile(vp *orderflow.VolumeProfile) *chart.ProfileView {
+	levels := vp.Levels()
+	if len(levels) == 0 {
+		return nil
+	}
+	val, poc, vah := vp.ValueArea()
+	out := make([]chart.ProfileLevel, len(levels))
+	for i, lv := range levels {
+		out[i] = chart.ProfileLevel{Price: lv.Price, Volume: lv.Volume}
+	}
+	return &chart.ProfileView{Levels: out, POC: poc, VAL: val, VAH: vah}
 }
