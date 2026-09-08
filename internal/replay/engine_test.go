@@ -189,24 +189,19 @@ func TestRunCanceled(t *testing.T) {
 }
 
 func TestNoConcurrencyPrimitives(t *testing.T) {
-	for _, name := range []string{"clock.go", "engine.go"} {
+	for _, name := range []string{"clock.go", "engine.go", "pacer.go"} {
 		b, err := os.ReadFile(name)
 		if err != nil {
 			t.Fatal(err)
 		}
 		s := string(b)
-		for _, bad := range []string{"\ngo ", " chan ", "\tchan ", "\nselect ", " select "} {
+		for _, bad := range []string{"\ngo ", " chan ", "\tchan ", "\nselect ", " select ", "time.Now("} {
 			if strings.Contains(s, bad) {
 				t.Errorf("%s contains %q", name, strings.TrimSpace(bad))
 			}
 		}
 	}
 }
-
-// HandlerFunc lets tests subscribe a function.
-type HandlerFunc func(*marketdata.Event)
-
-func (f HandlerFunc) OnEvent(ev *marketdata.Event) { f(ev) }
 
 func BenchmarkEngineRun(b *testing.B) {
 	evs := make([]marketdata.Event, 10_000)

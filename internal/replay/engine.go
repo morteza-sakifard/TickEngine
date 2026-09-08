@@ -24,7 +24,13 @@ type Engine struct {
 	src      feed.Source
 	clock    ReplayClock
 	handlers []Handler
+	pacer    *Pacer
 }
+
+// HandlerFunc is a function adapter for Handler.
+type HandlerFunc func(*marketdata.Event)
+
+func (f HandlerFunc) OnEvent(ev *marketdata.Event) { f(ev) }
 
 func New(src feed.Source) *Engine {
 	return &Engine{src: src}
@@ -44,9 +50,20 @@ func (e *Engine) Clock() Clock {
 	return &e.clock
 }
 
+func (e *Engine) SetPacer(p *Pacer) {
+	if e == nil {
+		return
+	}
+	e.pacer = p
+}
+
 // Run reads src until EOF or ctx cancellation. For each event it
 // advances the clock on TsRecv unless FlagBadTsRecv is set, then
-// calls every handler. The source is not Closed; the caller owns it.
+// calls every handler. A Pacer, if set, waits after a successful
+// Next for every event except the first (so the last print does
+// not wait for an extra Enter) and sleeps after each delivery
+// using the clock delta. A nil Pacer is the same loop as step 14.
+// The source is not Closed; the caller owns it.
 func (e *Engine) Run(ctx context.Context) error {
 	if e == nil || e.src == nil {
 		return fmt.Errorf("replay: nil engine or source")
@@ -55,6 +72,7 @@ func (e *Engine) Run(ctx context.Context) error {
 		ctx = context.Background()
 	}
 	var ev marketdata.Event
+	first := true
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -66,14 +84,22 @@ func (e *Engine) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		if !first && e.pacer != nil {
+			e.pacer.Await()
+		}
 		// FlagBadTsRecv: ts_recv is not a usable observation time.
 		// Do not Advance. Still deliver — dropping the print would
 		// invent a hole that the file does not have.
+		before := e.clock.UnixNano()
 		if ev.Flags&marketdata.FlagBadTsRecv == 0 {
 			e.clock.Advance(ev.TsRecv)
 		}
 		for _, h := range e.handlers {
 			h.OnEvent(&ev)
 		}
+		if e.pacer != nil {
+			e.pacer.Between(e.clock.UnixNano() - before)
+		}
+		first = false
 	}
 }
