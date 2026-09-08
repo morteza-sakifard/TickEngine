@@ -6,7 +6,9 @@ import (
 	"time"
 
 	"github.com/morteza-sakifard/market-data-lab/internal/core"
+	"github.com/morteza-sakifard/market-data-lab/internal/execution"
 	"github.com/morteza-sakifard/market-data-lab/internal/marketdata"
+	"github.com/morteza-sakifard/market-data-lab/internal/portfolio"
 )
 
 // Context is the strategy's only window to the outside world.
@@ -22,6 +24,9 @@ type Context interface {
 	LastTrade() (marketdata.Trade, bool)
 	Quote() (marketdata.Quote, bool)
 	Last() (marketdata.Event, bool)
+	Position() portfolio.Position
+	Submit(o execution.Order) (execution.OrderID, error)
+	Cancel(id execution.OrderID) error
 	Logf(format string, args ...any)
 }
 
@@ -34,10 +39,19 @@ type Runtime struct {
 	ns    int64
 	cache Cache
 	log   io.Writer
+	venue *execution.Venue
+	pos   portfolio.Position
 }
 
 func NewRuntime(inst core.Instrument, log io.Writer) *Runtime {
-	return &Runtime{inst: inst, log: log}
+	return &Runtime{inst: inst, log: log, venue: execution.NewVenue(execution.Fees{})}
+}
+
+func (rt *Runtime) SetFees(fees execution.Fees) error {
+	if rt == nil || rt.venue == nil {
+		return fmt.Errorf("strategy: nil runtime")
+	}
+	return rt.venue.SetFees(fees)
 }
 
 func (rt *Runtime) Now() time.Time {
@@ -89,6 +103,30 @@ func (rt *Runtime) Cache() *Cache {
 	return &rt.cache
 }
 
+func (rt *Runtime) Position() portfolio.Position {
+	if rt == nil {
+		return portfolio.Position{}
+	}
+	return rt.pos
+}
+
+func (rt *Runtime) Submit(o execution.Order) (execution.OrderID, error) {
+	if rt == nil || rt.venue == nil {
+		return 0, fmt.Errorf("strategy: nil runtime")
+	}
+	if o.Instrument == 0 {
+		o.Instrument = rt.inst.ID
+	}
+	return rt.venue.Enqueue(o)
+}
+
+func (rt *Runtime) Cancel(id execution.OrderID) error {
+	if rt == nil || rt.venue == nil {
+		return fmt.Errorf("strategy: nil runtime")
+	}
+	return rt.venue.Cancel(id)
+}
+
 func (rt *Runtime) Logf(format string, args ...any) {
 	if rt == nil || rt.log == nil {
 		return
@@ -109,4 +147,7 @@ func (rt *Runtime) Observe(ev *marketdata.Event) {
 		rt.ns = ev.TsRecv
 	}
 	rt.cache.onEvent(ev)
+	if q, ok := rt.cache.Quote(); ok && rt.venue != nil {
+		rt.venue.SetQuote(q)
+	}
 }

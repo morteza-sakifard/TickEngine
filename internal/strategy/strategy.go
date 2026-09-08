@@ -4,8 +4,13 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/morteza-sakifard/market-data-lab/internal/execution"
 	"github.com/morteza-sakifard/market-data-lab/internal/marketdata"
 )
+
+// maxCascade caps OnEvent re-entry after a fill at one timestamp.
+// Without it a strategy that always submits never returns.
+const maxCascade = 32
 
 // Strategy is the only type a runner should depend on. It sees the
 // market through Context, never through a file or a socket, so the
@@ -13,12 +18,11 @@ import (
 // without a Mode field to branch on. OnEvent must not retain ev:
 // Run reuses one Event, the same way feed.Source.Next does.
 //
-// Submit, OnBar, and OnOrder wait for the venue in step 20. Adding
-// them here would import packages that do not exist yet, or return
-// zeros that look like real fills.
+// OnBar waits for a bar builder. Limit queueing is step 21.
 type Strategy interface {
 	OnStart(Context) error
 	OnEvent(Context, *marketdata.Event) error
+	OnOrder(Context, execution.OrderEvent) error
 	OnStop(Context) error
 }
 
@@ -48,18 +52,84 @@ func Run(src Source, s Strategy, rt *Runtime) error {
 	if err := s.OnStart(rt); err != nil {
 		return err
 	}
+	if err := rt.drain(s); err != nil {
+		return err
+	}
 	var ev marketdata.Event
 	for {
 		err := src.Next(&ev)
 		if err == io.EOF {
-			return s.OnStop(rt)
+			if err := s.OnStop(rt); err != nil {
+				return err
+			}
+			return rt.drain(s)
 		}
 		if err != nil {
 			return err
 		}
 		rt.Observe(&ev)
-		if err := s.OnEvent(rt, &ev); err != nil {
+		if rest := rt.venue.MatchResting(&ev); len(rest) > 0 {
+			if err := rt.apply(s, rest); err != nil {
+				return err
+			}
+		}
+		if err := rt.cascade(s, &ev); err != nil {
 			return err
 		}
 	}
+}
+
+// cascade is the L8 loop: strategy sees the event, submits, venue
+// settles, and a new fill re-enters OnEvent at the same clock.
+func (rt *Runtime) cascade(s Strategy, ev *marketdata.Event) error {
+	for i := 0; i < maxCascade; i++ {
+		if err := s.OnEvent(rt, ev); err != nil {
+			return err
+		}
+		events := rt.venue.Settle(rt.UnixNano())
+		if len(events) == 0 {
+			return nil
+		}
+		if err := rt.apply(s, events); err != nil {
+			return err
+		}
+		if !anyFill(events) {
+			return nil
+		}
+	}
+	return fmt.Errorf("strategy: cascade exceeded %d at ts=%d", maxCascade, rt.UnixNano())
+}
+
+func (rt *Runtime) drain(s Strategy) error {
+	for i := 0; i < maxCascade; i++ {
+		events := rt.venue.Settle(rt.UnixNano())
+		if len(events) == 0 {
+			return nil
+		}
+		if err := rt.apply(s, events); err != nil {
+			return err
+		}
+	}
+	return fmt.Errorf("strategy: settle loop exceeded %d", maxCascade)
+}
+
+func (rt *Runtime) apply(s Strategy, events []execution.OrderEvent) error {
+	for _, e := range events {
+		if e.Status == execution.StatusFilled {
+			rt.pos.Apply(rt.inst, e.Fill)
+		}
+		if err := s.OnOrder(rt, e); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func anyFill(events []execution.OrderEvent) bool {
+	for _, e := range events {
+		if e.Status == execution.StatusFilled {
+			return true
+		}
+	}
+	return false
 }

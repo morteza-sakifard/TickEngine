@@ -12,8 +12,10 @@ import (
 	"testing"
 
 	"github.com/morteza-sakifard/market-data-lab/internal/core"
+	"github.com/morteza-sakifard/market-data-lab/internal/execution"
 	"github.com/morteza-sakifard/market-data-lab/internal/feed/databento"
 	"github.com/morteza-sakifard/market-data-lab/internal/marketdata"
+	"github.com/morteza-sakifard/market-data-lab/internal/portfolio"
 )
 
 type sliceSrc struct {
@@ -50,6 +52,9 @@ type clockProbe struct{ nows []int64 }
 
 func (p *clockProbe) OnStart(Context) error { return nil }
 func (p *clockProbe) OnStop(Context) error  { return nil }
+func (p *clockProbe) OnOrder(Context, execution.OrderEvent) error {
+	return nil
+}
 func (p *clockProbe) OnEvent(ctx Context, _ *marketdata.Event) error {
 	p.nows = append(p.nows, ctx.UnixNano())
 	return nil
@@ -280,6 +285,143 @@ func TestNowUsesVirtualClock(t *testing.T) {
 	if rt.UnixNano() != ts {
 		t.Fatalf("UnixNano = %d, want %d", rt.UnixNano(), ts)
 	}
+}
+
+type phaseLog struct{ phases []string }
+
+func (p *phaseLog) OnStart(Context) error { return nil }
+func (p *phaseLog) OnStop(Context) error  { return nil }
+func (p *phaseLog) OnOrder(Context, execution.OrderEvent) error {
+	p.phases = append(p.phases, "order")
+	return nil
+}
+func (p *phaseLog) OnEvent(ctx Context, _ *marketdata.Event) error {
+	p.phases = append(p.phases, "event")
+	pos := ctx.Position()
+	if pos.Qty == 0 && !contains(p.phases, "order") {
+		_, err := ctx.Submit(execution.Order{Side: core.SideBid, Qty: 1})
+		return err
+	}
+	if pos.Qty > 0 {
+		_, err := ctx.Submit(execution.Order{Side: core.SideAsk, Qty: 1})
+		return err
+	}
+	return nil
+}
+
+func contains(s []string, w string) bool {
+	for _, x := range s {
+		if x == w {
+			return true
+		}
+	}
+	return false
+}
+
+func TestCascadeEventOrderFillEvent(t *testing.T) {
+	src := &sliceSrc{evs: []marketdata.Event{{
+		Kind:   marketdata.KindQuote,
+		TsRecv: 10,
+		Quote:  marketdata.Quote{BidPx: 99, AskPx: 100},
+	}}}
+	s := &phaseLog{}
+	if err := Run(src, s, NewRuntime(core.ESZ5(), nil)); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"event", "order", "event", "order", "event"}
+	if len(s.phases) != len(want) {
+		t.Fatalf("phases = %v, want %v", s.phases, want)
+	}
+	for i := range want {
+		if s.phases[i] != want[i] {
+			t.Fatalf("phases = %v, want %v", s.phases, want)
+		}
+	}
+}
+
+type oneTick struct {
+	bought bool
+	buyTs  int64
+}
+
+func (s *oneTick) OnStart(Context) error { return nil }
+func (s *oneTick) OnStop(Context) error  { return nil }
+func (s *oneTick) OnOrder(Context, execution.OrderEvent) error {
+	return nil
+}
+func (s *oneTick) OnEvent(ctx Context, ev *marketdata.Event) error {
+	if ev.Kind != marketdata.KindQuote {
+		return nil
+	}
+	if !s.bought {
+		s.bought = true
+		s.buyTs = ctx.UnixNano()
+		_, err := ctx.Submit(execution.Order{Side: core.SideBid, Qty: 1})
+		return err
+	}
+	// Cascade re-enters OnEvent at the same TsRecv. Selling here
+	// would hit the entry bid and lose a tick; wait for the next quote.
+	if ctx.Position().Qty > 0 && ctx.UnixNano() > s.buyTs {
+		_, err := ctx.Submit(execution.Order{Side: core.SideAsk, Qty: 1})
+		return err
+	}
+	return nil
+}
+
+func TestBuyXSellXPlusOneTick(t *testing.T) {
+	const x core.Ticks = 26800
+	src := &sliceSrc{evs: []marketdata.Event{
+		{Kind: marketdata.KindQuote, TsRecv: 1, Quote: marketdata.Quote{BidPx: x - 1, AskPx: x}},
+		{Kind: marketdata.KindQuote, TsRecv: 2, Quote: marketdata.Quote{BidPx: x + 1, AskPx: x + 2}},
+	}}
+	fees := execution.Fees{CommissionCents: 100, FeeCents: 12}
+	rt := NewRuntime(core.ESZ5(), nil)
+	if err := rt.SetFees(fees); err != nil {
+		t.Fatal(err)
+	}
+	if err := Run(src, &oneTick{}, rt); err != nil {
+		t.Fatal(err)
+	}
+	want := portfolio.CentsPerTick(core.ESZ5()) - 2*(fees.CommissionCents+fees.FeeCents)
+	pos := rt.Position()
+	if pos.Qty != 0 || pos.Realized != want {
+		t.Fatalf("qty=%d realized=%d, want 0 and %d (Multiplier*TickSize − fees)", pos.Qty, pos.Realized, want)
+	}
+}
+
+func TestSubmitCancelSameEvent(t *testing.T) {
+	var canceled bool
+	s := &cancelOnSubmit{done: &canceled}
+	src := &sliceSrc{evs: []marketdata.Event{{
+		Kind:  marketdata.KindQuote,
+		Quote: marketdata.Quote{BidPx: 1, AskPx: 2},
+	}}}
+	rt := NewRuntime(core.ESZ5(), nil)
+	if err := Run(src, s, rt); err != nil {
+		t.Fatal(err)
+	}
+	if rt.Position().Qty != 0 {
+		t.Fatal("canceled order must not fill")
+	}
+}
+
+type cancelOnSubmit struct{ done *bool }
+
+func (s *cancelOnSubmit) OnStart(Context) error { return nil }
+func (s *cancelOnSubmit) OnStop(Context) error  { return nil }
+func (s *cancelOnSubmit) OnOrder(Context, execution.OrderEvent) error {
+	return nil
+}
+func (s *cancelOnSubmit) OnEvent(ctx Context, _ *marketdata.Event) error {
+	if *s.done {
+		return nil
+	}
+	id, err := ctx.Submit(execution.Order{Side: core.SideBid, Qty: 1})
+	if err != nil {
+		return err
+	}
+	*s.done = true
+	return ctx.Cancel(id)
 }
 
 func TestDepsExcludeFeed(t *testing.T) {

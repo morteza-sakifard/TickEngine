@@ -1,6 +1,9 @@
 package strategy
 
-import "github.com/morteza-sakifard/market-data-lab/internal/marketdata"
+import (
+	"github.com/morteza-sakifard/market-data-lab/internal/execution"
+	"github.com/morteza-sakifard/market-data-lab/internal/marketdata"
+)
 
 // LogStrategy writes one line per callback and does nothing else.
 // It has no fields, so the same value runs on any Source without
@@ -25,6 +28,8 @@ func (LogStrategy) OnEvent(ctx Context, ev *marketdata.Event) error {
 		ev.Quote.BidPx, ev.Quote.AskPx)
 	return nil
 }
+
+func (LogStrategy) OnOrder(Context, execution.OrderEvent) error { return nil }
 
 func (LogStrategy) OnStop(ctx Context) error {
 	if ctx != nil {
