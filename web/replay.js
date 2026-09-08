@@ -7,6 +7,7 @@
   const btnRTH = document.getElementById("btn-rth");
   const btnETH = document.getElementById("btn-eth");
   const speedEl = document.getElementById("speed");
+  const btnFull = document.getElementById("btn-full");
 
   let session = new URLSearchParams(location.search).get("session") || "RTH";
   let ws = null;
@@ -38,7 +39,12 @@
         return;
       }
       if (f.type === "bar" && f.bar) {
-        MDL.applyBar(f.index, f.bar, f.vwap, f.cvd);
+        MDL.applyBar(f.index, f.bar, f.vwap, f.cvd, {
+          footprint: f.Footprint,
+          profile: f.Profile,
+          tpo: f.TPO,
+          trade: f.trade,
+        });
         return;
       }
       if (f.type === "error") {
@@ -46,6 +52,7 @@
         return;
       }
       if (f.type === "done") {
+        if (MDL.applyFlow) MDL.applyFlow({ profile: f.Profile, tpo: f.TPO });
         MDL.setFollow(false);
       }
     };
@@ -75,6 +82,17 @@
     session = "ETH";
     connect();
   });
+  if (btnFull) {
+    btnFull.addEventListener("click", async function () {
+      MDL.showErr("");
+      const r = await fetch("/api/view?session=" + encodeURIComponent(session));
+      if (!r.ok) {
+        MDL.showErr(await r.text());
+        return;
+      }
+      MDL.loadView(await r.json());
+    });
+  }
 
   connect();
 })();

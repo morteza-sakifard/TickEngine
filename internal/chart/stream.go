@@ -35,6 +35,19 @@ type Frame struct {
 	CVD        core.Ticks       `json:"cvd"`
 	Speed      float64          `json:"speed,omitempty"`
 	Error      string           `json:"error,omitempty"`
+	Trade      *TapePrint       `json:"trade,omitempty"`
+	Footprint  *BarFootprint    `json:"Footprint,omitempty"`
+	Profile    *ProfileView     `json:"Profile,omitempty"`
+	TPO        *TPOView         `json:"TPO,omitempty"`
+}
+
+// TapePrint is one Time & Sales row. Side is core.Side (1=bid buy,
+// 2=ask sell) — the same discriminant the SVG footprint uses.
+type TapePrint struct {
+	TsEvent int64      `json:"TsEvent"`
+	Px      core.Ticks `json:"Px"`
+	Qty     core.Qty   `json:"Qty"`
+	Side    core.Side  `json:"Side"`
 }
 
 // WriteFrame writes one JSON value. Two calls with the same Frame

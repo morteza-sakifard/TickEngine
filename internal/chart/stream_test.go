@@ -59,6 +59,34 @@ func TestWriteFrameBarRoundTrip(t *testing.T) {
 	}
 }
 
+func TestWriteFrameCarriesOrderFlow(t *testing.T) {
+	fp := BarFootprint{Levels: []FootprintLevel{{Price: 26800, Buy: 2, Sell: 1}}}
+	var buf bytes.Buffer
+	if err := WriteFrame(&buf, Frame{
+		Type:      FrameBar,
+		Index:     0,
+		Footprint: &fp,
+		Trade:     &TapePrint{TsEvent: 1, Px: 26800, Qty: 2, Side: core.SideBid},
+		Profile:   &ProfileView{POC: 26800, VAL: 26796, VAH: 26804, Levels: []ProfileLevel{{Price: 26800, Volume: 3}}},
+		TPO:       &TPOView{POC: 26800, PeriodCount: 1, Levels: []TPOViewLevel{{Price: 26800, Letters: "A"}}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := ReadFrame(&buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Footprint == nil || got.Footprint.Levels[0].Buy != 2 {
+		t.Fatalf("footprint = %+v", got.Footprint)
+	}
+	if got.Trade == nil || got.Trade.Side != core.SideBid || got.Trade.Qty != 2 {
+		t.Fatalf("trade = %+v", got.Trade)
+	}
+	if got.Profile == nil || got.Profile.POC != 26800 || got.TPO == nil || got.TPO.Levels[0].Letters != "A" {
+		t.Fatalf("profile/tpo = %+v %+v", got.Profile, got.TPO)
+	}
+}
+
 func TestStreamFileHasNoConcurrencyPrimitives(t *testing.T) {
 	b, err := os.ReadFile("stream.go")
 	if err != nil {

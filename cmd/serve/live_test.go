@@ -151,6 +151,12 @@ func TestReplayStreamGrowsBars(t *testing.T) {
 			if f.Index != 0 {
 				t.Fatalf("index = %d, want 0 (one 5m bucket)", f.Index)
 			}
+			if f.Footprint == nil || f.Trade == nil {
+				t.Fatal("bar frame missing footprint or tape print")
+			}
+			if f.Profile == nil || f.TPO == nil {
+				t.Fatal("first bar should carry profile and TPO snapshots")
+			}
 			bars++
 		case chart.FrameDone:
 			if bars < 1 {

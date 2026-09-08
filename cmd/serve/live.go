@@ -141,8 +141,13 @@ func (s *server) runLive(ctx context.Context, c *wsConn, g *gate, trades []marke
 	}
 	var vwap orderflow.VWAP
 	var cvd orderflow.CVD
+	var vp orderflow.VolumeProfile
+	tpo := orderflow.NewTPO(tpoOpen(s.cal, s.date, sess))
+	var fps []orderflow.Footprint
 	from, to := sessionRange(s.cal, s.date, sess)
 	orch := orderflow.New(s.cal.Boundaries(from, to), &vwap, &cvd)
+	var lastIdx = -1
+	var lastSnap time.Time
 
 	eng := replay.New(&sliceSrc{evs: trades})
 	eng.SetPacer(&replay.Pacer{
@@ -171,24 +176,52 @@ func (s *server) runLive(ctx context.Context, c *wsConn, g *gate, trades []marke
 		}
 		orch.OnEvent(ev)
 		agg.Add(ev)
+		vp.OnTrade(ev)
+		tpo.OnTrade(ev)
 		bar, idx, ok := lastBar(agg)
 		if !ok {
 			return
 		}
+		for len(fps) <= idx {
+			fps = append(fps, orderflow.Footprint{})
+		}
+		fps[idx].OnTrade(ev)
+		fp := compose.SnapshotBarFootprint(&fps[idx])
 		b := bar
-		_ = writeFrame(c, chart.Frame{
-			Type:  chart.FrameBar,
-			Index: idx,
-			Bar:   &b,
-			VWAP:  vwap.Value(),
-			CVD:   core.Ticks(cvd.Value()),
-		})
+		fr := chart.Frame{
+			Type:      chart.FrameBar,
+			Index:     idx,
+			Bar:       &b,
+			VWAP:      vwap.Value(),
+			CVD:       core.Ticks(cvd.Value()),
+			Footprint: &fp,
+		}
+		if ev.Kind == marketdata.KindTrade {
+			fr.Trade = &chart.TapePrint{
+				TsEvent: ev.TsEvent,
+				Px:      ev.Trade.Px,
+				Qty:     ev.Trade.Qty,
+				Side:    ev.Trade.Aggressor,
+			}
+		}
+		now := time.Now()
+		if idx != lastIdx || lastSnap.IsZero() || now.Sub(lastSnap) >= 50*time.Millisecond {
+			fr.Profile = compose.SnapshotProfile(&vp)
+			fr.TPO = compose.TPOViewFrom(tpo)
+			lastSnap = now
+			lastIdx = idx
+		}
+		_ = writeFrame(c, fr)
 	}))
 	if err := eng.Run(ctx); err != nil && ctx.Err() == nil {
 		log.Printf("replay: %v", err)
 	}
 	if ctx.Err() == nil {
-		_ = writeFrame(c, chart.Frame{Type: chart.FrameDone})
+		_ = writeFrame(c, chart.Frame{
+			Type:    chart.FrameDone,
+			Profile: compose.SnapshotProfile(&vp),
+			TPO:     compose.TPOViewFrom(tpo),
+		})
 	}
 }
 
@@ -206,6 +239,14 @@ func lastBar(agg aggregation.Aggregator) (aggregation.Bar, int, bool) {
 		return aggregation.Bar{}, 0, false
 	}
 	return bars[len(bars)-1], len(bars) - 1, true
+}
+
+func tpoOpen(cal session.Calendar, day time.Time, sess session.Session) time.Time {
+	h := cal.Schedule.HoursFor(day)
+	if sess == session.ETH {
+		return h.ETHOpen
+	}
+	return h.RTHOpen
 }
 
 func sessionRange(cal session.Calendar, day time.Time, sess session.Session) (from, to time.Time) {

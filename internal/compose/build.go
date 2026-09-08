@@ -196,12 +196,13 @@ func SnapshotFootprints(trades []marketdata.Event, bars []aggregation.Bar) *char
 			fp.OnTrade(&trades[j])
 			j++
 		}
-		out[i] = snapshotBarFootprint(&fp)
+		out[i] = SnapshotBarFootprint(&fp)
 	}
 	return &chart.FootprintView{TicksPerRow: footprintTicksPerRow, Bars: out}
 }
 
-func snapshotBarFootprint(fp *orderflow.Footprint) chart.BarFootprint {
+// SnapshotBarFootprint is one grouped column with imbalance marks.
+func SnapshotBarFootprint(fp *orderflow.Footprint) chart.BarFootprint {
 	levels := fp.Grouped(footprintTicksPerRow)
 	cells := make([]chart.FootprintLevel, len(levels))
 	for i, lv := range levels {
@@ -248,6 +249,12 @@ func SnapshotTPO(trades []marketdata.Event, cal session.Calendar, s Spec) *chart
 	for i := range trades {
 		tpo.OnTrade(&trades[i])
 	}
+	return TPOViewFrom(tpo)
+}
+
+// TPOViewFrom copies the current TPO. Live replay uses this so each
+// trade does not rebuild the profile from the whole tape.
+func TPOViewFrom(tpo *orderflow.TPO) *chart.TPOView {
 	levels := tpo.Levels()
 	if len(levels) == 0 {
 		return nil
