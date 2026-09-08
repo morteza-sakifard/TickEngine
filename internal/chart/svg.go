@@ -54,10 +54,13 @@ func RenderSVG(w io.Writer, v View, o Options) error {
 	}
 	priceRight := outerRight
 	if hasProfile(v) {
-		priceRight = outerRight - profileWidth
-		if priceRight <= left {
-			priceRight = left + 1
-		}
+		priceRight -= profileWidth
+	}
+	if hasTPO(v) {
+		priceRight -= tpoWidth
+	}
+	if priceRight <= left {
+		priceRight = left + 1
 	}
 	priceBottom := bottom
 	if n := len(v.Panels); n > 0 {
@@ -90,8 +93,13 @@ func RenderSVG(w io.Writer, v View, o Options) error {
 	for _, s := range v.Overlays {
 		writePolyline(w, sc, s, overlayColor)
 	}
+	side := priceRight
+	if hasTPO(v) {
+		writeTPO(w, v.TPO, sc, side, side+tpoWidth)
+		side += tpoWidth
+	}
 	if hasProfile(v) {
-		writeProfile(w, v.Profile, sc, priceRight, outerRight)
+		writeProfile(w, v.Profile, sc, side, outerRight)
 	}
 	axisY := sc.Bottom + 16
 	if len(v.Panels) > 0 {

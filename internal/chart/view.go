@@ -24,6 +24,25 @@ type View struct {
 	Panels     []Panel
 	Profile    *ProfileView
 	Footprint  *FootprintView
+	TPO        *TPOView
+}
+
+// TPOView is the market-profile letter ladder. Levels are sorted by
+// price; Letters is already A…Z/a. A nil TPO leaves the step-8
+// layout unchanged.
+type TPOView struct {
+	Levels        []TPOViewLevel
+	POC           core.Ticks
+	IBLow, IBHigh core.Ticks
+	HasIB         bool
+	PeriodCount   int
+}
+
+// TPOViewLevel is one price row of letters.
+type TPOViewLevel struct {
+	Price   core.Ticks
+	Letters string
+	Single  bool
 }
 
 // FootprintView is the per-bar bid×ask ladder. Bars is aligned with

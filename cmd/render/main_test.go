@@ -162,6 +162,9 @@ func TestRenderFixtureETH(t *testing.T) {
 	if !strings.Contains(svg, "fill-opacity") {
 		t.Fatal("ETH fixture SVG missing footprint cells")
 	}
+	if !strings.Contains(svg, "tpo-clip") {
+		t.Fatal("ETH fixture SVG missing TPO letters")
+	}
 }
 
 func TestRenderNoTradesIsError(t *testing.T) {
@@ -289,5 +292,30 @@ func TestSampleFlowVWAPAndCVD(t *testing.T) {
 		if buy != b.BuyVolume || sell != b.SellVolume {
 			t.Fatalf("bar %d footprint buy/sell %d/%d != bar %d/%d", i, buy, sell, b.BuyVolume, b.SellVolume)
 		}
+	}
+}
+
+func TestSnapshotTPOFullRTHHas13Periods(t *testing.T) {
+	cal := esCal(t)
+	day := time.Date(2025, time.September, 23, 0, 0, 0, 0, cal.Location)
+	h := cal.Schedule.HoursFor(day)
+	var trades []marketdata.Event
+	for i := 0; i < 13; i++ {
+		at := h.RTHOpen.Add(time.Duration(i)*orderflow.TPOPeriod + time.Second)
+		trades = append(trades, marketdata.Event{
+			Kind:    marketdata.KindTrade,
+			TsEvent: at.UnixNano(),
+			Trade:   marketdata.Trade{Px: 26800, Qty: 1, Aggressor: core.SideBid},
+		})
+	}
+	view := snapshotTPO(trades, cal, spec{Date: day, Session: session.RTH})
+	if view == nil {
+		t.Fatal("expected a TPO view")
+	}
+	if view.PeriodCount != 13 {
+		t.Fatalf("PeriodCount = %d, want 13", view.PeriodCount)
+	}
+	if view.Levels[0].Letters != "ABCDEFGHIJKLM" {
+		t.Fatalf("letters = %q, want A–M", view.Levels[0].Letters)
 	}
 }

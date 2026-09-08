@@ -295,6 +295,28 @@ func abs(f float64) float64 {
 	return f
 }
 
+func TestTPOLettersDrawn(t *testing.T) {
+	v := basicView(t)
+	v.TPO = &TPOView{
+		Levels: []TPOViewLevel{
+			{Price: 26800, Letters: "A", Single: true},
+			{Price: 26808, Letters: "AB", Single: false},
+			{Price: 26816, Letters: "B", Single: true},
+		},
+		POC: 26808, IBLow: 26800, IBHigh: 26816, HasIB: true, PeriodCount: 2,
+	}
+	svg := render(t, v, Options{Location: chicago(t)})
+	if !strings.Contains(svg, ">AB<") {
+		t.Fatal("TPO missing letter string")
+	}
+	if !strings.Contains(svg, tpoIBFill) {
+		t.Fatal("TPO missing initial-balance band")
+	}
+	if !strings.Contains(svg, "tpo-clip") {
+		t.Fatal("TPO missing clip path")
+	}
+}
+
 func TestFootprintCellsDrawn(t *testing.T) {
 	v := basicView(t)
 	v.Footprint = &FootprintView{

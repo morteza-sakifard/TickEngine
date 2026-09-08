@@ -151,8 +151,9 @@ func sameCivil(a, b time.Time) bool {
 
 // render reads src, keeps trades whose Classify trading date and
 // session match the spec, aggregates them, samples VWAP/CVD at each
-// bar, builds the session volume profile and per-bar footprints, and
-// writes an SVG to w. Quotes are ignored: a bar is
+// bar, builds the session volume profile, per-bar footprints, and
+// TPO from the session open, and writes an SVG to w. Quotes are
+// ignored: a bar is
 // executions, not book updates. Zero matching trades is an error —
 // a blank chart would hide a wrong --date or --session rather than
 // say so. The decoder reuses one Event, so each kept trade is copied
@@ -217,6 +218,7 @@ func render(src feed.Source, w io.Writer, inst core.Instrument, cal session.Cale
 		}},
 		Profile:   snapshotProfile(&vp),
 		Footprint: snapshotFootprints(trades, bars),
+		TPO:       snapshotTPO(trades, cal, s),
 	}
 	if err := chart.RenderSVG(w, view, chart.Options{Location: cal.Location}); err != nil {
 		return 0, err
@@ -329,4 +331,47 @@ func inStack(stacks []orderflow.Stack, px core.Ticks, dir core.Side, n int) bool
 		}
 	}
 	return false
+}
+
+func tpoAnchor(cal session.Calendar, s spec) time.Time {
+	h := cal.Schedule.HoursFor(s.Date)
+	if s.Session == session.ETH {
+		return h.ETHOpen
+	}
+	return h.RTHOpen
+}
+
+// snapshotTPO builds a market profile from the session open, not
+// from the first trade. A file that starts at 10:37 still labels
+// that print from 08:30.
+func snapshotTPO(trades []marketdata.Event, cal session.Calendar, s spec) *chart.TPOView {
+	tpo := orderflow.NewTPO(tpoAnchor(cal, s))
+	for i := range trades {
+		tpo.OnTrade(&trades[i])
+	}
+	levels := tpo.Levels()
+	if len(levels) == 0 {
+		return nil
+	}
+	out := make([]chart.TPOViewLevel, len(levels))
+	for i, lv := range levels {
+		letters := make([]byte, 0, len(lv.Periods))
+		for _, p := range lv.Periods {
+			letters = append(letters, orderflow.PeriodLetter(p)...)
+		}
+		out[i] = chart.TPOViewLevel{
+			Price:   lv.Price,
+			Letters: string(letters),
+			Single:  lv.Count() == 1,
+		}
+	}
+	ibLow, ibHigh, hasIB := tpo.InitialBalance()
+	return &chart.TPOView{
+		Levels:      out,
+		POC:         tpo.POC(),
+		IBLow:       ibLow,
+		IBHigh:      ibHigh,
+		HasIB:       hasIB,
+		PeriodCount: tpo.PeriodCount(),
+	}
 }
