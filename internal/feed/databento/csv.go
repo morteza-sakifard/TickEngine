@@ -10,7 +10,6 @@ import (
 	"io"
 	"math"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/morteza-sakifard/market-data-lab/internal/core"
@@ -170,7 +169,7 @@ func (d *Decoder) Next(dst *marketdata.Event) error {
 	// UNDEF_PRICE decision above. TicksFrom would reject it as "not a
 	// multiple of the tick size", which is correct for a real price but
 	// wrong for a sentinel that says there is no price.
-	bidPxNano, err := parsePriceNano(field(line, &offs, colBidPx))
+	bidPxNano, err := core.ParsePriceNano(field(line, &offs, colBidPx))
 	if err != nil {
 		return fmt.Errorf("databento: line %d: bid_px_00: %w", d.line, err)
 	}
@@ -181,7 +180,7 @@ func (d *Decoder) Next(dst *marketdata.Event) error {
 			return fmt.Errorf("databento: line %d: bid_px_00: %w", d.line, err)
 		}
 	}
-	askPxNano, err := parsePriceNano(field(line, &offs, colAskPx))
+	askPxNano, err := core.ParsePriceNano(field(line, &offs, colAskPx))
 	if err != nil {
 		return fmt.Errorf("databento: line %d: ask_px_00: %w", d.line, err)
 	}
@@ -230,7 +229,7 @@ func (d *Decoder) Next(dst *marketdata.Event) error {
 		// side, there is no legitimate "no price" execution, so an
 		// UNDEF_PRICE or off-tick price here is a hard decode error, not
 		// a passthrough sentinel.
-		priceNano, err := parsePriceNano(field(line, &offs, colPrice))
+		priceNano, err := core.ParsePriceNano(field(line, &offs, colPrice))
 		if err != nil {
 			return fmt.Errorf("databento: line %d: price: %w", d.line, err)
 		}
@@ -307,10 +306,9 @@ func splitFields(line []byte, out *[numColumns][2]int) int {
 // field converts one column of line to a string. This is the only
 // place Next turns bytes into a string, and it stays allocation-free
 // only because every function fed the result (parseTsNano,
-// parsePriceNano, strconv.ParseInt/ParseUint) clones the string before
-// ever putting it in a returned error, instead of embedding it
-// directly — see badPrice below and the "leaking parameter" decision
-// above.
+// core.ParsePriceNano, strconv.ParseInt/ParseUint) clones the string
+// before ever putting it in a returned error, instead of embedding
+// it directly. See the leak comment on core.ParsePriceNano.
 func field(line []byte, offs *[numColumns][2]int, i int) string {
 	return string(line[offs[i][0]:offs[i][1]])
 }
@@ -327,79 +325,4 @@ func parseTsNano(s string) (int64, error) {
 		return 0, err
 	}
 	return t.UnixNano(), nil
-}
-
-// badPrice reports a malformed price field. strings.Clone(s), not s
-// itself: embedding s directly would mark parsePriceNano's parameter
-// as leaking, forcing every caller's zero-copy substring onto the heap
-// even on success. The clone is a fresh allocation that happens only
-// on this cold error path — exactly the trick strconv's own NumError
-// uses internally (stringslite.Clone) to keep ParseInt itself
-// allocation-free on success.
-func badPrice(s string) error {
-	return fmt.Errorf("malformed price field %q", strings.Clone(s))
-}
-
-// parsePriceNano is the same algorithm as core.ParsePriceNano — sign,
-// then digits, then an optional "." and up to 9 fractional digits,
-// accumulated as nanounits with overflow checks — copied locally
-// because that function's own error messages embed the raw input
-// directly and so would leak on every call, not just malformed ones.
-// See the decision above for why this lives here instead of a change
-// to internal/core.
-func parsePriceNano(s string) (int64, error) {
-	if s == "" {
-		return 0, badPrice(s)
-	}
-	neg := false
-	switch s[0] {
-	case '-':
-		neg, s = true, s[1:]
-	case '+':
-		s = s[1:]
-	}
-	intPart, fracPart := s, ""
-	if i := strings.IndexByte(s, '.'); i >= 0 {
-		intPart, fracPart = s[:i], s[i+1:]
-	}
-	if intPart == "" || len(fracPart) > 9 {
-		return 0, badPrice(s)
-	}
-	var whole uint64
-	for i := 0; i < len(intPart); i++ {
-		c := intPart[i]
-		if c < '0' || c > '9' {
-			return 0, badPrice(s)
-		}
-		if whole > (math.MaxUint64-uint64(c-'0'))/10 {
-			return 0, badPrice(s)
-		}
-		whole = whole*10 + uint64(c-'0')
-	}
-	var frac uint64
-	for i := range 9 {
-		var d uint64
-		if i < len(fracPart) {
-			c := fracPart[i]
-			if c < '0' || c > '9' {
-				return 0, badPrice(s)
-			}
-			d = uint64(c - '0')
-		}
-		frac = frac*10 + d
-	}
-	if whole > math.MaxUint64/1_000_000_000 {
-		return 0, badPrice(s)
-	}
-	mag := whole*1_000_000_000 + frac
-	if neg {
-		if mag > uint64(math.MaxInt64)+1 {
-			return 0, badPrice(s)
-		}
-		return -int64(mag), nil
-	}
-	if mag > uint64(math.MaxInt64) {
-		return 0, badPrice(s)
-	}
-	return int64(mag), nil
 }

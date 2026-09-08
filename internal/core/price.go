@@ -18,6 +18,16 @@ const (
 //	"6713.500000000" -> 6713_500_000_000
 //	"6713.50"        -> 6713_500_000_000  (short fraction is right-padded)
 //	"1.0000000001"   -> error             (more than 9 places)
+//
+// Any error that interpolates the input must pass strings.Clone(s),
+// not s. Embedding s itself marks this parameter as leaking, so a
+// zero-copy substring from a reused []byte (feed/databento field())
+// would escape to the heap on every call — success included. Clone
+// allocates only on the cold error path; strconv does the same
+// internally (stringslite.Clone) to keep ParseInt allocation-free
+// on success. Do not wrap Clone in a helper: a non-inlined wrapper
+// is a cross-function call and the compiler then treats s as leaking
+// again.
 func ParsePriceNano(s string) (int64, error) {
 	if s == "" {
 		return 0, fmt.Errorf("empty price")
@@ -36,23 +46,23 @@ func ParsePriceNano(s string) (int64, error) {
 		intPart, fracPart = s[:i], s[i+1:]
 	}
 	if intPart == "" && fracPart == "" {
-		return 0, fmt.Errorf("no digits in %q", s)
+		return 0, fmt.Errorf("no digits in %q", strings.Clone(s))
 	}
 	if intPart != "" && !allDigits(intPart) {
-		return 0, fmt.Errorf("integer part of %q is not numeric", s)
+		return 0, fmt.Errorf("integer part of %q is not numeric", strings.Clone(s))
 	}
 	if fracPart != "" && !allDigits(fracPart) {
-		return 0, fmt.Errorf("fractional part of %q is not numeric", s)
+		return 0, fmt.Errorf("fractional part of %q is not numeric", strings.Clone(s))
 	}
 	if len(fracPart) > NanoDigits {
-		return 0, fmt.Errorf("more than %d decimal places in %q", NanoDigits, s)
+		return 0, fmt.Errorf("more than %d decimal places in %q", NanoDigits, strings.Clone(s))
 	}
 
 	var whole uint64
 	for i := 0; i < len(intPart); i++ {
 		d := uint64(intPart[i] - '0')
 		if whole > (math.MaxUint64-d)/10 {
-			return 0, fmt.Errorf("integer part of %q overflows", s)
+			return 0, fmt.Errorf("integer part of %q overflows", strings.Clone(s))
 		}
 		whole = whole*10 + d
 	}
@@ -67,11 +77,11 @@ func ParsePriceNano(s string) (int64, error) {
 	}
 
 	if whole > math.MaxUint64/NanoScale {
-		return 0, fmt.Errorf("%q overflows int64 nanounits", s)
+		return 0, fmt.Errorf("%q overflows int64 nanounits", strings.Clone(s))
 	}
 	mag := whole * NanoScale
 	if mag > math.MaxUint64-frac {
-		return 0, fmt.Errorf("%q overflows int64 nanounits", s)
+		return 0, fmt.Errorf("%q overflows int64 nanounits", strings.Clone(s))
 	}
 	mag += frac
 
@@ -79,7 +89,7 @@ func ParsePriceNano(s string) (int64, error) {
 		// MinInt64 = -(MaxInt64 + 1). The positive magnitude does not
 		// fit in int64; detect it before the cast.
 		if mag > uint64(math.MaxInt64)+1 {
-			return 0, fmt.Errorf("%q overflows int64 nanounits", s)
+			return 0, fmt.Errorf("%q overflows int64 nanounits", strings.Clone(s))
 		}
 		if mag == uint64(math.MaxInt64)+1 {
 			return math.MinInt64, nil
@@ -87,7 +97,7 @@ func ParsePriceNano(s string) (int64, error) {
 		return -int64(mag), nil
 	}
 	if mag > uint64(math.MaxInt64) {
-		return 0, fmt.Errorf("%q overflows int64 nanounits", s)
+		return 0, fmt.Errorf("%q overflows int64 nanounits", strings.Clone(s))
 	}
 	return int64(mag), nil
 }

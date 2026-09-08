@@ -43,6 +43,25 @@ func TestParsePriceNano(t *testing.T) {
 	}
 }
 
+// TestParsePriceNanoAllocs is the L0 half of TestNextAllocs: a reused
+// []byte is sliced to a string the same way feed/databento field()
+// does. If an error path still embeds s instead of strings.Clone(s),
+// this reports 1 alloc/op even though the input is well-formed.
+func TestParsePriceNanoAllocs(t *testing.T) {
+	buf := []byte("pad6713.500000000pad")
+	const want int64 = 6713_500_000_000
+	allocs := testing.AllocsPerRun(1000, func() {
+		s := string(buf[3:17])
+		n, err := ParsePriceNano(s)
+		if err != nil || n != want {
+			panic("ParsePriceNanoAllocs")
+		}
+	})
+	if allocs != 0 {
+		t.Fatalf("ParsePriceNano allocs/op = %v, want 0 (error paths must Clone the input)", allocs)
+	}
+}
+
 func TestFormatNano(t *testing.T) {
 	tests := []struct {
 		in   int64
