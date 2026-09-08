@@ -7,16 +7,17 @@ import (
 	"github.com/morteza-sakifard/market-data-lab/internal/marketdata"
 )
 
-// Venue is a simulated exchange for market orders. It does not
-// import strategy: the runner feeds quotes in and pulls events
-// out. Resting limit matching is step 21; MatchResting exists so
-// the cascade loop already has a place to call.
+// Venue is a simulated exchange. It does not import the strategy
+// package: the runner feeds quotes in and pulls events out.
+// Limits rest in working; see queue.go for how ahead is consumed.
 type Venue struct {
-	nextID OrderID
-	fees   Fees
-	quote  marketdata.Quote
-	hasQ   bool
-	inbox  []Order
+	nextID  OrderID
+	fees    Fees
+	quote   marketdata.Quote
+	hasQ    bool
+	model   QueueModel
+	inbox   []Order
+	working []resting
 }
 
 func NewVenue(fees Fees) *Venue {
@@ -70,24 +71,35 @@ func (v *Venue) Cancel(id OrderID) error {
 			return nil
 		}
 	}
+	for i, r := range v.working {
+		if r.order.ID == id {
+			v.working = append(v.working[:i], v.working[i+1:]...)
+			return nil
+		}
+	}
 	return fmt.Errorf("execution: order %d not working", id)
 }
 
-// MatchResting is step 2 of the cascade. No limits live here yet,
-// so it only records a quote from the event and returns nothing.
+// MatchResting is step 2 of the cascade: trades eat the queue,
+// quotes update the book. See queue.go.
 func (v *Venue) MatchResting(ev *marketdata.Event) []OrderEvent {
 	if v == nil || ev == nil {
 		return nil
 	}
-	if ev.Kind == marketdata.KindQuote {
-		v.SetQuote(ev.Quote)
+	switch ev.Kind {
+	case marketdata.KindTrade:
+		return v.onTrade(ev)
+	case marketdata.KindQuote:
+		v.applyQuote(ev.Quote)
+		return nil
+	default:
+		return nil
 	}
-	return nil
 }
 
-// Settle fills every queued market order at the current quote:
-// buy at AskPx, sell at BidPx. No quote means rejected, not a
-// fill at last trade.
+// Settle fills market and marketable-limit orders at the touch.
+// A non-marketable limit joins the queue and emits nothing until
+// MatchResting fills it or Cancel removes it. No quote rejects.
 func (v *Venue) Settle(ts int64) []OrderEvent {
 	if v == nil || len(v.inbox) == 0 {
 		return nil
@@ -96,23 +108,27 @@ func (v *Venue) Settle(ts int64) []OrderEvent {
 	v.inbox = nil
 	out := make([]OrderEvent, 0, len(inbox))
 	for _, o := range inbox {
+		if o.kind() == KindLimit {
+			if px, ok := v.marketableLimit(o); ok {
+				out = append(out, v.filled(o, px, o.Qty, ts))
+				continue
+			}
+			if !v.hasQ {
+				out = append(out, OrderEvent{Order: o, Status: StatusRejected})
+				continue
+			}
+			v.rest(o)
+			continue
+		}
 		px, ok := v.fillPx(o.Side)
 		if !ok {
 			out = append(out, OrderEvent{Order: o, Status: StatusRejected})
 			continue
 		}
-		out = append(out, OrderEvent{
-			Order:  o,
-			Status: StatusFilled,
-			Fill: Fill{
-				OrderID:  o.ID,
-				Ts:       ts,
-				Px:       px,
-				Qty:      o.Qty,
-				Side:     o.Side,
-				FeeCents: v.fees.perContract() * int64(o.Qty),
-			},
-		})
+		out = append(out, v.filled(o, px, o.Qty, ts))
+	}
+	if len(out) == 0 {
+		return nil
 	}
 	return out
 }

@@ -147,7 +147,4 @@ func (rt *Runtime) Observe(ev *marketdata.Event) {
 		rt.ns = ev.TsRecv
 	}
 	rt.cache.onEvent(ev)
-	if q, ok := rt.cache.Quote(); ok && rt.venue != nil {
-		rt.venue.SetQuote(q)
-	}
 }

@@ -9,18 +9,20 @@ import (
 // OrderID is assigned by the venue. Zero means "not yet accepted".
 type OrderID uint64
 
-// Kind is how the order meets the book. Only market is implemented
-// in this step; a limit would sit on the book and is step 21.
+// Kind is how the order meets the book. Zero means market.
 type Kind uint8
 
 const (
 	KindMarket Kind = iota + 1
+	KindLimit
 )
 
 func (k Kind) String() string {
 	switch k {
 	case KindMarket:
 		return "market"
+	case KindLimit:
+		return "limit"
 	default:
 		return "unknown"
 	}
@@ -35,6 +37,7 @@ type Order struct {
 	Side       core.Side
 	Qty        core.Qty
 	Kind       Kind
+	Px         core.Ticks // limit price; unused for market
 }
 
 func (o Order) kind() Kind {
@@ -51,10 +54,17 @@ func (o Order) validate() error {
 	if o.Side != core.SideBid && o.Side != core.SideAsk {
 		return fmt.Errorf("execution: side %s is not bid or ask", o.Side)
 	}
-	if o.kind() != KindMarket {
+	switch o.kind() {
+	case KindMarket:
+		return nil
+	case KindLimit:
+		if o.Px == 0 {
+			return fmt.Errorf("execution: limit price required")
+		}
+		return nil
+	default:
 		return fmt.Errorf("execution: %s orders are not implemented", o.kind())
 	}
-	return nil
 }
 
 // Status is the outcome delivered on OrderEvent.
