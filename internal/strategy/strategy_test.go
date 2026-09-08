@@ -398,6 +398,27 @@ func TestZeroLatencySamePnLAsStep20(t *testing.T) {
 	}
 }
 
+func TestBlotterDeterministic(t *testing.T) {
+	const x core.Ticks = 26800
+	src := func() Source {
+		return &sliceSrc{evs: []marketdata.Event{
+			{Kind: marketdata.KindQuote, TsRecv: 1, Quote: marketdata.Quote{BidPx: x - 1, AskPx: x}},
+			{Kind: marketdata.KindQuote, TsRecv: 2, Quote: marketdata.Quote{BidPx: x + 1, AskPx: x + 2}},
+		}}
+	}
+	hash := func() [32]byte {
+		rt := NewRuntime(core.ESZ5(), nil)
+		if err := Run(src(), &oneTick{}, rt); err != nil {
+			t.Fatal(err)
+		}
+		b := rt.Blotter()
+		return sha256.Sum256([]byte(b.Text() + b.Metrics().Text()))
+	}
+	if a, b := hash(), hash(); a != b {
+		t.Fatal("same data + config produced different blotter bytes")
+	}
+}
+
 func TestOnEventClockIsTsRecv(t *testing.T) {
 	p := &clockProbe{}
 	src := &sliceSrc{evs: []marketdata.Event{{

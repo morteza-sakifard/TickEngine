@@ -26,6 +26,7 @@ type View struct {
 	Profile    *ProfileView
 	Footprint  *FootprintView
 	TPO        *TPOView
+	Marks      []Mark
 }
 
 // TPOView is the market-profile letter ladder. Levels are sorted by

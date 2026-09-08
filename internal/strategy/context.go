@@ -35,12 +35,13 @@ type Context interface {
 // is virtual and moves only on Observe: wall-clock reads are not
 // used, because they are neither replayable nor testable.
 type Runtime struct {
-	inst  core.Instrument
-	ns    int64
-	cache Cache
-	log   io.Writer
-	venue *execution.Venue
-	pos   portfolio.Position
+	inst    core.Instrument
+	ns      int64
+	cache   Cache
+	log     io.Writer
+	venue   *execution.Venue
+	pos     portfolio.Position
+	blotter portfolio.Blotter
 }
 
 func NewRuntime(inst core.Instrument, log io.Writer) *Runtime {
@@ -108,6 +109,13 @@ func (rt *Runtime) Cache() *Cache {
 		return nil
 	}
 	return &rt.cache
+}
+
+func (rt *Runtime) Blotter() *portfolio.Blotter {
+	if rt == nil {
+		return nil
+	}
+	return &rt.blotter
 }
 
 func (rt *Runtime) Position() portfolio.Position {

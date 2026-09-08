@@ -119,7 +119,9 @@ func (rt *Runtime) drain(s Strategy) error {
 func (rt *Runtime) apply(s Strategy, events []execution.OrderEvent) error {
 	for _, e := range events {
 		if e.Status == execution.StatusFilled {
+			before := rt.pos
 			rt.pos.Apply(rt.inst, e.Fill)
+			rt.blotter.Record(e.Fill, before, rt.pos)
 		}
 		if err := s.OnOrder(rt, e); err != nil {
 			return err

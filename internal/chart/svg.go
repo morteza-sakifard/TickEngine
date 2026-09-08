@@ -93,6 +93,7 @@ func RenderSVG(w io.Writer, v View, o Options) error {
 	for _, s := range v.Overlays {
 		writePolyline(w, sc, s, overlayColor)
 	}
+	writeMarks(w, v.Marks, sc)
 	side := priceRight
 	if hasTPO(v) {
 		writeTPO(w, v.TPO, sc, side, side+tpoWidth)

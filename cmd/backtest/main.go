@@ -91,6 +91,10 @@ func runBacktest(src feed.Source, inst core.Instrument, fees execution.Fees, lat
 		unreal = portfolio.Unrealized(pos, q, inst)
 	}
 	fmt.Fprintf(w, "realized=%d unrealized=%d qty=%d\n", pos.Realized, unreal, pos.Qty)
+	if b := rt.Blotter(); b != nil {
+		fmt.Fprint(w, b.Text())
+		fmt.Fprint(w, b.Metrics().Text())
+	}
 	return pos, unreal, nil
 }
 
