@@ -5,5 +5,5 @@ package web
 
 import "embed"
 
-//go:embed index.html chart.js
+//go:embed index.html chart.js replay.js
 var FS embed.FS

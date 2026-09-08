@@ -1,7 +1,6 @@
 package main
 
 import (
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -134,6 +133,17 @@ func TestEmbedIndexAndChartJS(t *testing.T) {
 	if !strings.Contains(src, "wheel") {
 		t.Fatal("chart.js missing wheel zoom")
 	}
+	if !strings.Contains(src, "applyBar") {
+		t.Fatal("chart.js missing incremental applyBar")
+	}
+	rep := httptest.NewRecorder()
+	h.ServeHTTP(rep, httptest.NewRequest("GET", "/replay.js", nil))
+	if rep.Code != 200 || !strings.Contains(rep.Body.String(), "play") {
+		t.Fatalf("replay.js status %d", rep.Code)
+	}
+	if !strings.Contains(idx.Body.String(), "replay.js") {
+		t.Fatal("index must load replay.js")
+	}
 }
 
 func TestETHQueryRebuildsFromSameTrades(t *testing.T) {
@@ -207,19 +217,3 @@ func TestComposeCollectThenFromTrades(t *testing.T) {
 		t.Fatalf("from trades: bars=%d err=%v", len(v.Bars), err)
 	}
 }
-
-type sliceSrc struct {
-	evs []marketdata.Event
-	i   int
-}
-
-func (s *sliceSrc) Next(dst *marketdata.Event) error {
-	if s.i >= len(s.evs) {
-		return io.EOF
-	}
-	*dst = s.evs[s.i]
-	s.i++
-	return nil
-}
-
-func (s *sliceSrc) Close() error { return nil }

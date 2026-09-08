@@ -2,12 +2,15 @@
 // a 15:30 bar and the 17:00 bar after the halt sit one slot apart,
 // the same rule as internal/chart/scale.go. Footprint / TPO / profile
 // stay on the SVG until step 18.
+//
+// draw() paints the visible window. applyBar patches one slot when
+// the y-range and the window stay put — that is the incremental
+// path step 17 requires. A new bar that pans, or a price that
+// expands the scale, falls back to a full visible redraw.
 (function () {
   const canvas = document.getElementById("chart");
   const title = document.getElementById("title");
   const errBox = document.getElementById("err");
-  const btnRTH = document.getElementById("btn-rth");
-  const btnETH = document.getElementById("btn-eth");
   const ctx = canvas.getContext("2d");
 
   const padL = 16;
@@ -20,58 +23,69 @@
   const ink = "#222222";
   const vwapColor = "#1d4ed8";
   const cvdColor = "#0f766e";
+  const slotPx = 8;
 
   const state = {
-    view: null,
-    session: new URLSearchParams(location.search).get("session") || "RTH",
+    view: emptyView(),
     i0: 0,
     i1: 0,
     drag: null,
+    follow: true,
+    lastPB: null,
+    raf: 0,
+    pending: null,
   };
+
+  function emptyView(inst, header) {
+    return {
+      Instrument: inst || {},
+      Header: header || {},
+      Bars: [],
+      Overlays: [{ Name: "VWAP", Values: [] }],
+      Panels: [{ Name: "CVD", Series: [{ Name: "CVD", Values: [] }] }],
+    };
+  }
 
   function showErr(msg) {
     errBox.textContent = msg;
     errBox.style.display = msg ? "block" : "none";
   }
 
-  async function load(session) {
-    showErr("");
-    const r = await fetch("/api/view?session=" + encodeURIComponent(session));
-    if (!r.ok) {
-      showErr(await r.text());
-      return;
-    }
-    const view = await r.json();
-    state.view = view;
-    state.session = session;
-    state.i0 = 0;
-    state.i1 = view.Bars ? view.Bars.length : 0;
-    btnRTH.setAttribute("aria-pressed", session === "RTH" ? "true" : "false");
-    btnETH.setAttribute("aria-pressed", session === "ETH" ? "true" : "false");
-    const h = view.Header || {};
+  function setTitle() {
+    const h = state.view.Header || {};
     const day = (h.TradingDate || "").slice(0, 10);
-    title.textContent = [h.Symbol, day, h.Session].filter(Boolean).join("  ");
-    draw();
+    title.textContent = [h.Symbol, day, h.Session].filter(Boolean).join("  ") || "replay";
   }
 
   function layout() {
     const dpr = window.devicePixelRatio || 1;
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
-    canvas.width = Math.max(1, Math.floor(w * dpr));
-    canvas.height = Math.max(1, Math.floor(h * dpr));
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (canvas.width !== Math.floor(w * dpr) || canvas.height !== Math.floor(h * dpr)) {
+      canvas.width = Math.max(1, Math.floor(w * dpr));
+      canvas.height = Math.max(1, Math.floor(h * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      state.lastPB = null;
+    }
     const left = padL;
     const right = w - padR;
     const top = padT;
     const bottom = h - padB;
-    const hasPanel = state.view && state.view.Panels && state.view.Panels.length > 0;
+    const hasPanel = state.view.Panels && state.view.Panels.length > 0;
     const priceBottom = hasPanel ? bottom - (bottom - top) * 0.24 : bottom;
     return { w, h, left, right, top, bottom, priceBottom };
   }
 
+  function followWindow() {
+    const n = state.view.Bars.length;
+    const box = layout();
+    const vis = Math.max(5, Math.floor((box.right - box.left) / slotPx));
+    state.i1 = n;
+    state.i0 = Math.max(0, n - vis);
+  }
+
   function visibleBars() {
-    const bars = state.view && state.view.Bars ? state.view.Bars : [];
+    const bars = state.view.Bars || [];
     const i0 = Math.max(0, Math.min(state.i0, bars.length));
     const i1 = Math.max(i0, Math.min(state.i1, bars.length));
     return { bars, i0, i1, n: i1 - i0 };
@@ -133,17 +147,44 @@
     return out.length ? out : [lo];
   }
 
+  function samePB(a, b) {
+    return a && b && a.lo === b.lo && a.hi === b.hi;
+  }
+
+  function drawCandle(box, vis, pb, i) {
+    const b = vis.bars[i];
+    const x = xOf(i, box, vis);
+    const color = b.Close < b.Open ? down : up;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, yOf(b.High, box, pb));
+    ctx.lineTo(x, yOf(b.Low, box, pb));
+    ctx.stroke();
+    let top = yOf(b.Open, box, pb);
+    let bot = yOf(b.Close, box, pb);
+    if (top > bot) {
+      const tmp = top;
+      top = bot;
+      bot = tmp;
+    }
+    const hw = slotWidth(box, vis) * 0.3;
+    ctx.fillStyle = color;
+    ctx.fillRect(x - hw, top, hw * 2, Math.max(1, bot - top));
+  }
+
   function draw() {
-    if (!state.view) return;
     const box = layout();
     const vis = visibleBars();
     ctx.clearRect(0, 0, box.w, box.h);
     if (vis.n <= 0) {
       ctx.fillStyle = ink;
-      ctx.fillText("no bars", box.left, box.top + 20);
+      ctx.fillText("waiting for play…", box.left, box.top + 20);
+      state.lastPB = null;
       return;
     }
     const pb = priceBounds(vis);
+    state.lastPB = pb;
     const inst = state.view.Instrument || {};
 
     ctx.strokeStyle = grid;
@@ -159,27 +200,7 @@
       ctx.fillText(formatPrice(inst, px), box.right + 8, y + 4);
     });
 
-    const hw = slotWidth(box, vis) * 0.3;
-    for (let i = vis.i0; i < vis.i1; i++) {
-      const b = vis.bars[i];
-      const x = xOf(i, box, vis);
-      const color = b.Close < b.Open ? down : up;
-      ctx.strokeStyle = color;
-      ctx.beginPath();
-      ctx.moveTo(x, yOf(b.High, box, pb));
-      ctx.lineTo(x, yOf(b.Low, box, pb));
-      ctx.stroke();
-      let top = yOf(b.Open, box, pb);
-      let bot = yOf(b.Close, box, pb);
-      if (top > bot) {
-        const tmp = top;
-        top = bot;
-        bot = tmp;
-      }
-      const bh = Math.max(1, bot - top);
-      ctx.fillStyle = color;
-      ctx.fillRect(x - hw, top, hw * 2, bh);
-    }
+    for (let i = vis.i0; i < vis.i1; i++) drawCandle(box, vis, pb, i);
 
     const overlays = state.view.Overlays || [];
     overlays.forEach(function (s) {
@@ -272,8 +293,117 @@
     });
   }
 
+  function patchSlot(index) {
+    const box = layout();
+    const vis = visibleBars();
+    if (index < vis.i0 || index >= vis.i1) {
+      draw();
+      return;
+    }
+    const pb = priceBounds(vis);
+    if (!samePB(pb, state.lastPB)) {
+      draw();
+      return;
+    }
+    const slot = slotWidth(box, vis);
+    const x = xOf(index, box, vis);
+    const left = x - slot / 2;
+    ctx.clearRect(left, box.top, slot, box.priceBottom - box.top);
+    ctx.strokeStyle = grid;
+    ctx.lineWidth = 1;
+    niceTicks(pb.lo, pb.hi, 6).forEach(function (px) {
+      const y = yOf(px, box, pb);
+      ctx.beginPath();
+      ctx.moveTo(left, y);
+      ctx.lineTo(left + slot, y);
+      ctx.stroke();
+    });
+    drawCandle(box, vis, pb, index);
+    const vals = (state.view.Overlays[0] && state.view.Overlays[0].Values) || [];
+    if (vals.length > index) {
+      ctx.strokeStyle = vwapColor;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      if (index > vis.i0 && vals.length > index - 1) {
+        ctx.moveTo(xOf(index - 1, box, vis), yOf(vals[index - 1], box, pb));
+        ctx.lineTo(x, yOf(vals[index], box, pb));
+      } else {
+        ctx.moveTo(x, yOf(vals[index], box, pb));
+        ctx.lineTo(x + 0.1, yOf(vals[index], box, pb));
+      }
+      ctx.stroke();
+    }
+    if (state.view.Panels && state.view.Panels.length) {
+      const panelTop = box.priceBottom + 10;
+      ctx.clearRect(left, panelTop, slot, box.bottom - panelTop);
+      drawPanel(state.view.Panels[0], box, vis);
+    }
+  }
+
+  function flush() {
+    state.raf = 0;
+    const job = state.pending;
+    state.pending = null;
+    if (!job) return;
+    if (job.kind === "full") draw();
+    else patchSlot(job.index);
+  }
+
+  function schedule(job) {
+    if (state.pending && state.pending.kind === "full") {
+      job = state.pending;
+    } else if (state.pending && job.kind === "slot" && state.pending.index !== job.index) {
+      job = { kind: "full" };
+    }
+    state.pending = job;
+    if (!state.raf) state.raf = requestAnimationFrame(flush);
+  }
+
+  function applyBar(index, bar, vwap, cvd) {
+    const bars = state.view.Bars;
+    const grew = index >= bars.length;
+    while (bars.length <= index) bars.push({ Open: 0, High: 0, Low: 0, Close: 0 });
+    bars[index] = bar;
+    const ov = state.view.Overlays[0].Values;
+    const cv = state.view.Panels[0].Series[0].Values;
+    while (ov.length <= index) ov.push(0);
+    while (cv.length <= index) cv.push(0);
+    ov[index] = vwap;
+    cv[index] = cvd;
+    const old0 = state.i0;
+    const old1 = state.i1;
+    if (state.follow) followWindow();
+    else if (grew) {
+      state.i1 = bars.length;
+    }
+    const panned = state.i0 !== old0 || (grew && state.i1 !== old1 + (grew ? 1 : 0) && state.follow);
+    if (grew && (state.follow && (old0 !== state.i0 || old1 === 0))) {
+      schedule({ kind: "full" });
+      return;
+    }
+    if (panned && state.follow && grew && old0 !== state.i0) {
+      schedule({ kind: "full" });
+      return;
+    }
+    if (!grew && index === bars.length - 1) {
+      schedule({ kind: "slot", index: index });
+      return;
+    }
+    schedule({ kind: grew ? "full" : "slot", index: index });
+  }
+
+  function reset(inst, header) {
+    state.view = emptyView(inst, header);
+    state.i0 = 0;
+    state.i1 = 0;
+    state.follow = true;
+    state.lastPB = null;
+    setTitle();
+    draw();
+  }
+
   function clampWindow() {
-    const n = state.view && state.view.Bars ? state.view.Bars.length : 0;
+    const n = state.view.Bars.length;
     if (state.i0 < 0) {
       state.i1 -= state.i0;
       state.i0 = 0;
@@ -291,10 +421,10 @@
 
   canvas.addEventListener("wheel", function (e) {
     e.preventDefault();
-    if (!state.view || !state.view.Bars) return;
-    const box = layout();
     const vis = visibleBars();
     if (vis.n <= 0) return;
+    state.follow = false;
+    const box = layout();
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const frac = (mx - box.left) / Math.max(1, box.right - box.left);
@@ -315,28 +445,34 @@
   canvas.addEventListener("pointerup", function () { state.drag = null; });
   canvas.addEventListener("pointercancel", function () { state.drag = null; });
   canvas.addEventListener("pointermove", function (e) {
-    if (!state.drag || !state.view) return;
+    if (!state.drag || !state.view.Bars.length) return;
+    state.follow = false;
     const box = layout();
     const visN = state.drag.i1 - state.drag.i0;
     if (visN <= 0) return;
     const slot = (box.right - box.left) / visN;
-    const dx = e.clientX - state.drag.x;
-    const shift = Math.round(-dx / slot);
+    const shift = Math.round(-(e.clientX - state.drag.x) / slot);
     state.i0 = state.drag.i0 + shift;
     state.i1 = state.drag.i1 + shift;
     clampWindow();
     draw();
   });
   canvas.addEventListener("dblclick", function () {
-    if (!state.view || !state.view.Bars) return;
+    state.follow = false;
     state.i0 = 0;
     state.i1 = state.view.Bars.length;
     draw();
   });
+  window.addEventListener("resize", function () { schedule({ kind: "full" }); });
 
-  btnRTH.addEventListener("click", function () { load("RTH"); });
-  btnETH.addEventListener("click", function () { load("ETH"); });
-  window.addEventListener("resize", draw);
+  window.MDL = {
+    reset: reset,
+    applyBar: applyBar,
+    draw: draw,
+    showErr: showErr,
+    setFollow: function (on) { state.follow = !!on; },
+    barCount: function () { return state.view.Bars.length; },
+  };
 
-  load(state.session);
+  reset();
 })();

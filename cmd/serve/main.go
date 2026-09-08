@@ -109,6 +109,7 @@ func newMux(s *server) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/view", s.serveJSON)
 	mux.HandleFunc("GET /api/view.svg", s.serveSVG)
+	mux.HandleFunc("GET /api/replay", s.serveReplay)
 	mux.Handle("/", http.FileServer(http.FS(web.FS)))
 	return mux
 }

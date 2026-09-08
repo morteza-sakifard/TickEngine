@@ -190,7 +190,7 @@ func TestKeepFiltersSession(t *testing.T) {
 		Trade:   marketdata.Trade{Px: 26800, Qty: 1, Aggressor: core.SideBid},
 	}
 	day := time.Date(2025, time.September, 23, 0, 0, 0, 0, cal.Location)
-	got := keep([]marketdata.Event{rth, eth}, cal, day, session.SetRTH)
+	got := Keep([]marketdata.Event{rth, eth}, cal, day, session.SetRTH)
 	if len(got) != 1 || got[0].TsEvent != rth.TsEvent {
 		t.Fatalf("keep RTH = %d events, want the 09:00 trade only", len(got))
 	}

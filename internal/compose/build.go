@@ -63,7 +63,7 @@ func Collect(src feed.Source, cal session.Calendar, date time.Time, sessions ses
 // FromTrades aggregates already-collected trades and snapshots
 // VWAP, CVD, volume profile, footprints, and TPO into a View.
 func FromTrades(trades []marketdata.Event, inst core.Instrument, cal session.Calendar, s Spec) (chart.View, error) {
-	kept := keep(trades, cal, s.Date, s.Sessions)
+	kept := Keep(trades, cal, s.Date, s.Sessions)
 	agg, err := aggregation.New(aggregation.BarSpec{
 		Kind:     aggregation.KindTime,
 		Interval: s.Interval,
@@ -117,7 +117,8 @@ func Build(src feed.Source, inst core.Instrument, cal session.Calendar, s Spec) 
 	return FromTrades(trades, inst, cal, s)
 }
 
-func keep(trades []marketdata.Event, cal session.Calendar, date time.Time, sessions session.Set) []marketdata.Event {
+// Keep returns trades whose Classify trading date and session match.
+func Keep(trades []marketdata.Event, cal session.Calendar, date time.Time, sessions session.Set) []marketdata.Event {
 	out := trades[:0:0]
 	for i := range trades {
 		td, sess := cal.Classify(trades[i].EventTime())
