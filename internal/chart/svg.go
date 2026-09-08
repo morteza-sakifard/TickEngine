@@ -77,8 +77,15 @@ func RenderSVG(w io.Writer, v View, o Options) error {
 
 	writeHeader(w, v, loc)
 	writePriceGrid(w, v.Instrument, sc, outerRight+8)
+	if hasFootprint(v) {
+		writeFootprint(w, v.Footprint, sc)
+	}
 	for i, b := range v.Bars {
-		writeCandle(w, sc, i, b)
+		if hasFootprint(v) {
+			writeWick(w, sc, i, b)
+		} else {
+			writeCandle(w, sc, i, b)
+		}
 	}
 	for _, s := range v.Overlays {
 		writePolyline(w, sc, s, overlayColor)
@@ -152,15 +159,13 @@ func formatPrice(inst core.Instrument, px core.Ticks) string {
 }
 
 func writeCandle(w io.Writer, sc Scale, i int, b aggregation.Bar) {
+	writeWick(w, sc, i, b)
 	x := sc.X(i)
-	yH, yL := sc.Y(b.High), sc.Y(b.Low)
 	yO, yC := sc.Y(b.Open), sc.Y(b.Close)
 	color := upColor
 	if b.Close < b.Open {
 		color = downColor
 	}
-	fmt.Fprintf(w, "  <line x1=\"%.1f\" y1=\"%.1f\" x2=\"%.1f\" y2=\"%.1f\" stroke=\"%s\" stroke-width=\"1\"/>\n",
-		x, yH, x, yL, color)
 	bodyTop, bodyBot := yO, yC
 	if bodyTop > bodyBot {
 		bodyTop, bodyBot = bodyBot, bodyTop
@@ -172,6 +177,16 @@ func writeCandle(w io.Writer, sc Scale, i int, b aggregation.Bar) {
 	hw := sc.slotWidth() * 0.3
 	fmt.Fprintf(w, "  <rect x=\"%.1f\" y=\"%.1f\" width=\"%.1f\" height=\"%.1f\" fill=\"%s\"/>\n",
 		x-hw, bodyTop, hw*2, h, color)
+}
+
+func writeWick(w io.Writer, sc Scale, i int, b aggregation.Bar) {
+	x := sc.X(i)
+	color := upColor
+	if b.Close < b.Open {
+		color = downColor
+	}
+	fmt.Fprintf(w, "  <line x1=\"%.1f\" y1=\"%.1f\" x2=\"%.1f\" y2=\"%.1f\" stroke=\"%s\" stroke-width=\"1\"/>\n",
+		x, sc.Y(b.High), x, sc.Y(b.Low), color)
 }
 
 func writeTimeAxis(w io.Writer, bars []aggregation.Bar, sc Scale, loc *time.Location, y float64) {

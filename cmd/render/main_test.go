@@ -159,6 +159,9 @@ func TestRenderFixtureETH(t *testing.T) {
 	if !strings.Contains(svg, "stroke-dasharray") {
 		t.Fatal("ETH fixture SVG missing volume-profile POC line")
 	}
+	if !strings.Contains(svg, "fill-opacity") {
+		t.Fatal("ETH fixture SVG missing footprint cells")
+	}
 }
 
 func TestRenderNoTradesIsError(t *testing.T) {
@@ -271,5 +274,20 @@ func TestSampleFlowVWAPAndCVD(t *testing.T) {
 	}
 	if sum != vp.Total() {
 		t.Fatalf("profile levels sum %d != total %d", sum, vp.Total())
+	}
+
+	fp := snapshotFootprints(trades, bars)
+	if fp == nil || len(fp.Bars) != len(bars) {
+		t.Fatalf("footprint bars = %d, want %d", len(fp.Bars), len(bars))
+	}
+	for i, b := range bars {
+		var buy, sell core.Qty
+		for _, lv := range fp.Bars[i].Levels {
+			buy += lv.Buy
+			sell += lv.Sell
+		}
+		if buy != b.BuyVolume || sell != b.SellVolume {
+			t.Fatalf("bar %d footprint buy/sell %d/%d != bar %d/%d", i, buy, sell, b.BuyVolume, b.SellVolume)
+		}
 	}
 }

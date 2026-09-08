@@ -295,6 +295,27 @@ func abs(f float64) float64 {
 	return f
 }
 
+func TestFootprintCellsDrawn(t *testing.T) {
+	v := basicView(t)
+	v.Footprint = &FootprintView{
+		TicksPerRow: 1,
+		Bars: []BarFootprint{{
+			Levels: []FootprintLevel{
+				{Price: 26800, Buy: 6, Sell: 2},
+				{Price: 26804, Buy: 1, Sell: 3},
+			},
+			Imbs: []FootprintImb{{Price: 26800, Dir: core.SideAsk}},
+		}},
+	}
+	svg := render(t, v, Options{Location: chicago(t)})
+	if !strings.Contains(svg, "fill-opacity") {
+		t.Fatal("footprint cells missing volume opacity")
+	}
+	if !strings.Contains(svg, imbColor) {
+		t.Fatal("imbalance cell missing gold stroke")
+	}
+}
+
 func TestVWAPOverlayYInsideSessionRange(t *testing.T) {
 	v := basicView(t)
 	lo, hi := v.Bars[0].Low, v.Bars[0].High

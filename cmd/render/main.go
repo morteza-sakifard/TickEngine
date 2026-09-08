@@ -151,7 +151,8 @@ func sameCivil(a, b time.Time) bool {
 
 // render reads src, keeps trades whose Classify trading date and
 // session match the spec, aggregates them, samples VWAP/CVD at each
-// bar, builds the session volume profile, and writes an SVG to w. Quotes are ignored: a bar is
+// bar, builds the session volume profile and per-bar footprints, and
+// writes an SVG to w. Quotes are ignored: a bar is
 // executions, not book updates. Zero matching trades is an error —
 // a blank chart would hide a wrong --date or --session rather than
 // say so. The decoder reuses one Event, so each kept trade is copied
@@ -214,7 +215,8 @@ func render(src feed.Source, w io.Writer, inst core.Instrument, cal session.Cale
 			Name:   "CVD",
 			Series: []chart.Series{{Name: "CVD", Values: cvd}},
 		}},
-		Profile: snapshotProfile(&vp),
+		Profile:   snapshotProfile(&vp),
+		Footprint: snapshotFootprints(trades, bars),
 	}
 	if err := chart.RenderSVG(w, view, chart.Options{Location: cal.Location}); err != nil {
 		return 0, err
@@ -271,4 +273,60 @@ func snapshotProfile(vp *orderflow.VolumeProfile) *chart.ProfileView {
 		out[i] = chart.ProfileLevel{Price: lv.Price, Volume: lv.Volume}
 	}
 	return &chart.ProfileView{Levels: out, POC: poc, VAL: val, VAH: vah}
+}
+
+const (
+	footprintTicksPerRow = 4
+	footprintRatio       = 3
+	footprintMinStack    = 3
+)
+
+// snapshotFootprints builds one grouped footprint per bar from the
+// same trades that made the bar. Sampling lives here because
+// orderflow must not import aggregation.
+func snapshotFootprints(trades []marketdata.Event, bars []aggregation.Bar) *chart.FootprintView {
+	out := make([]chart.BarFootprint, len(bars))
+	j := 0
+	for i := range bars {
+		var fp orderflow.Footprint
+		end := bars[i].End
+		for j < len(trades) && trades[j].EventTime().Before(end) {
+			fp.OnTrade(&trades[j])
+			j++
+		}
+		out[i] = snapshotBarFootprint(&fp)
+	}
+	return &chart.FootprintView{TicksPerRow: footprintTicksPerRow, Bars: out}
+}
+
+func snapshotBarFootprint(fp *orderflow.Footprint) chart.BarFootprint {
+	levels := fp.Grouped(footprintTicksPerRow)
+	cells := make([]chart.FootprintLevel, len(levels))
+	for i, lv := range levels {
+		cells[i] = chart.FootprintLevel{Price: lv.Price, Buy: lv.Buy, Sell: lv.Sell}
+	}
+	stacks := fp.StackedImbalances(footprintMinStack, footprintRatio, footprintTicksPerRow)
+	imbs := fp.Imbalances(footprintRatio, footprintTicksPerRow)
+	marks := make([]chart.FootprintImb, len(imbs))
+	for i, im := range imbs {
+		marks[i] = chart.FootprintImb{
+			Price:   im.Price,
+			Dir:     im.Dir,
+			Stacked: inStack(stacks, im.Price, im.Dir, footprintTicksPerRow),
+		}
+	}
+	return chart.BarFootprint{Levels: cells, Imbs: marks}
+}
+
+func inStack(stacks []orderflow.Stack, px core.Ticks, dir core.Side, n int) bool {
+	step := core.Ticks(n)
+	for _, s := range stacks {
+		if s.Dir != dir || px < s.From || px > s.To {
+			continue
+		}
+		if step > 0 && (px-s.From)%step == 0 {
+			return true
+		}
+	}
+	return false
 }

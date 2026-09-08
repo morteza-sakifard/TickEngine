@@ -23,6 +23,37 @@ type View struct {
 	Overlays   []Series
 	Panels     []Panel
 	Profile    *ProfileView
+	Footprint  *FootprintView
+}
+
+// FootprintView is the per-bar bid×ask ladder. Bars is aligned with
+// View.Bars by index; a shorter slice skips extra candles. A nil
+// Footprint leaves the candle bodies in place so the step-8 golden
+// stays valid.
+type FootprintView struct {
+	TicksPerRow int
+	Bars        []BarFootprint
+}
+
+// BarFootprint is one column of cells, already grouped and with
+// imbalance marks resolved. RenderSVG does not recompute ratios.
+type BarFootprint struct {
+	Levels []FootprintLevel
+	Imbs   []FootprintImb
+}
+
+// FootprintLevel is one grouped price row of a bar.
+type FootprintLevel struct {
+	Price     core.Ticks
+	Buy, Sell core.Qty
+}
+
+// FootprintImb marks one cell. Stacked is true when that cell sits
+// in a run of at least three same-direction imbalances.
+type FootprintImb struct {
+	Price   core.Ticks
+	Dir     core.Side
+	Stacked bool
 }
 
 // ProfileView is the side histogram for a session volume profile.
