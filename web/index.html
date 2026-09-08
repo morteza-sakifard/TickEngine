@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>market-data-lab</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #fff; color: #222; font: 13px/1.4 ui-monospace, monospace; }
+    header { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-bottom: 1px solid #e6e6e6; }
+    header h1 { font-size: 13px; font-weight: 600; margin: 0; flex: 1; }
+    button { font: inherit; padding: 2px 8px; cursor: pointer; }
+    button[aria-pressed="true"] { background: #222; color: #fff; border-color: #222; }
+    #hint { color: #6b7280; }
+    #err { color: #b42318; padding: 8px 12px; display: none; }
+    canvas { display: block; width: 100%; height: calc(100% - 42px); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1 id="title">loading…</h1>
+    <span id="hint">wheel zoom · drag pan · double-click reset</span>
+    <button type="button" id="btn-rth" aria-pressed="false">RTH</button>
+    <button type="button" id="btn-eth" aria-pressed="false">ETH</button>
+  </header>
+  <div id="err"></div>
+  <canvas id="chart"></canvas>
+  <script src="/chart.js"></script>
+</body>
+</html>

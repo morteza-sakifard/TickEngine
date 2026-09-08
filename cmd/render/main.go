@@ -18,11 +18,10 @@ import (
 
 	"github.com/morteza-sakifard/market-data-lab/internal/aggregation"
 	"github.com/morteza-sakifard/market-data-lab/internal/chart"
+	"github.com/morteza-sakifard/market-data-lab/internal/compose"
 	"github.com/morteza-sakifard/market-data-lab/internal/core"
 	"github.com/morteza-sakifard/market-data-lab/internal/feed"
 	"github.com/morteza-sakifard/market-data-lab/internal/feed/databento"
-	"github.com/morteza-sakifard/market-data-lab/internal/marketdata"
-	"github.com/morteza-sakifard/market-data-lab/internal/orderflow"
 	"github.com/morteza-sakifard/market-data-lab/internal/session"
 )
 
@@ -143,235 +142,22 @@ func parseInterval(s string) (time.Duration, error) {
 	return d, nil
 }
 
-func sameCivil(a, b time.Time) bool {
-	y1, m1, d1 := a.Date()
-	y2, m2, d2 := b.Date()
-	return y1 == y2 && m1 == m2 && d1 == d2
-}
-
-// render reads src, keeps trades whose Classify trading date and
-// session match the spec, aggregates them, samples VWAP/CVD at each
-// bar, builds the session volume profile, per-bar footprints, and
-// TPO from the session open, and writes an SVG to w. Quotes are
-// ignored: a bar is
-// executions, not book updates. Zero matching trades is an error —
-// a blank chart would hide a wrong --date or --session rather than
-// say so. The decoder reuses one Event, so each kept trade is copied
-// before it is stored.
+// render builds the same View compose.Build produces and writes it
+// as SVG. Zero matching trades is an error — a blank chart would
+// hide a wrong --date or --session rather than say so.
 func render(src feed.Source, w io.Writer, inst core.Instrument, cal session.Calendar, s spec) (int, error) {
-	agg, err := aggregation.New(aggregation.BarSpec{
-		Kind:     aggregation.KindTime,
-		Interval: s.Interval,
-		Anchor:   s.Anchor,
-		Location: cal.Location,
+	view, err := compose.Build(src, inst, cal, compose.Spec{
+		Date:     s.Date,
+		Session:  s.Session,
 		Sessions: s.Sessions,
-	}, cal)
+		Anchor:   s.Anchor,
+		Interval: s.Interval,
+	})
 	if err != nil {
 		return 0, err
-	}
-
-	var trades []marketdata.Event
-	var ev marketdata.Event
-	for {
-		err := src.Next(&ev)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return 0, err
-		}
-		if ev.Kind != marketdata.KindTrade {
-			continue
-		}
-		td, sess := cal.Classify(ev.EventTime())
-		if !sameCivil(td, s.Date) || !s.Sessions.Contains(sess) {
-			continue
-		}
-		kept := ev
-		trades = append(trades, kept)
-		agg.Add(&kept)
-	}
-	agg.Flush()
-	bars := agg.Bars()
-	if len(bars) == 0 {
-		return 0, fmt.Errorf("render: no trades for %s %s %s",
-			inst.Symbol, s.Date.Format("2006-01-02"), s.Session)
-	}
-
-	vwap, cvd := sampleFlow(trades, bars, cal)
-	var vp orderflow.VolumeProfile
-	for i := range trades {
-		vp.OnTrade(&trades[i])
-	}
-	view := chart.View{
-		Instrument: inst,
-		Header: chart.Header{
-			Symbol:      inst.Symbol,
-			TradingDate: s.Date,
-			Session:     s.Session,
-		},
-		Bars:     bars,
-		Overlays: []chart.Series{{Name: "VWAP", Values: vwap}},
-		Panels: []chart.Panel{{
-			Name:   "CVD",
-			Series: []chart.Series{{Name: "CVD", Values: cvd}},
-		}},
-		Profile:   snapshotProfile(&vp),
-		Footprint: snapshotFootprints(trades, bars),
-		TPO:       snapshotTPO(trades, cal, s),
 	}
 	if err := chart.RenderSVG(w, view, chart.Options{Location: cal.Location}); err != nil {
 		return 0, err
 	}
-	return len(bars), nil
-}
-
-// sampleFlow walks trades in TsEvent order, resets on session
-// boundaries, and snapshots VWAP and CVD after the last trade of
-// each bar. Sampling lives here because orderflow must not import
-// aggregation.
-func sampleFlow(trades []marketdata.Event, bars []aggregation.Bar, cal session.Calendar) (vwap, cvd []core.Ticks) {
-	vwap = make([]core.Ticks, len(bars))
-	cvd = make([]core.Ticks, len(bars))
-	if len(bars) == 0 {
-		return vwap, cvd
-	}
-	from, to := bars[0].Start, bars[len(bars)-1].End
-	if len(trades) > 0 {
-		if t0 := trades[0].EventTime(); t0.Before(from) {
-			from = t0
-		}
-		if t1 := trades[len(trades)-1].EventTime(); !t1.Before(to) {
-			to = t1.Add(time.Nanosecond)
-		}
-	}
-	var accVWAP orderflow.VWAP
-	var accCVD orderflow.CVD
-	o := orderflow.New(cal.Boundaries(from, to), &accVWAP, &accCVD)
-	j := 0
-	for i := range bars {
-		end := bars[i].End
-		for j < len(trades) && trades[j].EventTime().Before(end) {
-			o.OnEvent(&trades[j])
-			j++
-		}
-		vwap[i] = accVWAP.Value()
-		cvd[i] = core.Ticks(accCVD.Value())
-	}
-	return vwap, cvd
-}
-
-// snapshotProfile copies a session profile into the chart DTO.
-// Chart does not import orderflow: Levels is already sorted, so
-// RenderSVG never ranges a map.
-func snapshotProfile(vp *orderflow.VolumeProfile) *chart.ProfileView {
-	levels := vp.Levels()
-	if len(levels) == 0 {
-		return nil
-	}
-	val, poc, vah := vp.ValueArea()
-	out := make([]chart.ProfileLevel, len(levels))
-	for i, lv := range levels {
-		out[i] = chart.ProfileLevel{Price: lv.Price, Volume: lv.Volume}
-	}
-	return &chart.ProfileView{Levels: out, POC: poc, VAL: val, VAH: vah}
-}
-
-const (
-	footprintTicksPerRow = 4
-	footprintRatio       = 3
-	footprintMinStack    = 3
-)
-
-// snapshotFootprints builds one grouped footprint per bar from the
-// same trades that made the bar. Sampling lives here because
-// orderflow must not import aggregation.
-func snapshotFootprints(trades []marketdata.Event, bars []aggregation.Bar) *chart.FootprintView {
-	out := make([]chart.BarFootprint, len(bars))
-	j := 0
-	for i := range bars {
-		var fp orderflow.Footprint
-		end := bars[i].End
-		for j < len(trades) && trades[j].EventTime().Before(end) {
-			fp.OnTrade(&trades[j])
-			j++
-		}
-		out[i] = snapshotBarFootprint(&fp)
-	}
-	return &chart.FootprintView{TicksPerRow: footprintTicksPerRow, Bars: out}
-}
-
-func snapshotBarFootprint(fp *orderflow.Footprint) chart.BarFootprint {
-	levels := fp.Grouped(footprintTicksPerRow)
-	cells := make([]chart.FootprintLevel, len(levels))
-	for i, lv := range levels {
-		cells[i] = chart.FootprintLevel{Price: lv.Price, Buy: lv.Buy, Sell: lv.Sell}
-	}
-	stacks := fp.StackedImbalances(footprintMinStack, footprintRatio, footprintTicksPerRow)
-	imbs := fp.Imbalances(footprintRatio, footprintTicksPerRow)
-	marks := make([]chart.FootprintImb, len(imbs))
-	for i, im := range imbs {
-		marks[i] = chart.FootprintImb{
-			Price:   im.Price,
-			Dir:     im.Dir,
-			Stacked: inStack(stacks, im.Price, im.Dir, footprintTicksPerRow),
-		}
-	}
-	return chart.BarFootprint{Levels: cells, Imbs: marks}
-}
-
-func inStack(stacks []orderflow.Stack, px core.Ticks, dir core.Side, n int) bool {
-	step := core.Ticks(n)
-	for _, s := range stacks {
-		if s.Dir != dir || px < s.From || px > s.To {
-			continue
-		}
-		if step > 0 && (px-s.From)%step == 0 {
-			return true
-		}
-	}
-	return false
-}
-
-func tpoAnchor(cal session.Calendar, s spec) time.Time {
-	h := cal.Schedule.HoursFor(s.Date)
-	if s.Session == session.ETH {
-		return h.ETHOpen
-	}
-	return h.RTHOpen
-}
-
-// snapshotTPO builds a market profile from the session open, not
-// from the first trade. A file that starts at 10:37 still labels
-// that print from 08:30.
-func snapshotTPO(trades []marketdata.Event, cal session.Calendar, s spec) *chart.TPOView {
-	tpo := orderflow.NewTPO(tpoAnchor(cal, s))
-	for i := range trades {
-		tpo.OnTrade(&trades[i])
-	}
-	levels := tpo.Levels()
-	if len(levels) == 0 {
-		return nil
-	}
-	out := make([]chart.TPOViewLevel, len(levels))
-	for i, lv := range levels {
-		letters := make([]byte, 0, len(lv.Periods))
-		for _, p := range lv.Periods {
-			letters = append(letters, orderflow.PeriodLetter(p)...)
-		}
-		out[i] = chart.TPOViewLevel{
-			Price:   lv.Price,
-			Letters: string(letters),
-			Single:  lv.Count() == 1,
-		}
-	}
-	ibLow, ibHigh, hasIB := tpo.InitialBalance()
-	return &chart.TPOView{
-		Levels:      out,
-		POC:         tpo.POC(),
-		IBLow:       ibLow,
-		IBHigh:      ibHigh,
-		HasIB:       hasIB,
-		PeriodCount: tpo.PeriodCount(),
-	}
+	return len(view.Bars), nil
 }

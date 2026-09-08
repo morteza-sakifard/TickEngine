@@ -1,6 +1,10 @@
 package session
 
-import "time"
+import (
+	"encoding/json"
+	"fmt"
+	"time"
+)
 
 type Session int
 
@@ -19,6 +23,31 @@ func (s Session) String() string {
 	default:
 		return "Closed"
 	}
+}
+
+// MarshalJSON writes the name, not the iota. The browser chart and
+// SVG both read Session from the same View; "RTH" is the same word
+// the header already prints.
+func (s Session) MarshalJSON() ([]byte, error) {
+	return json.Marshal(s.String())
+}
+
+func (s *Session) UnmarshalJSON(b []byte) error {
+	var name string
+	if err := json.Unmarshal(b, &name); err != nil {
+		return err
+	}
+	switch name {
+	case "RTH":
+		*s = RTH
+	case "ETH":
+		*s = ETH
+	case "Closed", "":
+		*s = Closed
+	default:
+		return fmt.Errorf("session: unknown %q", name)
+	}
+	return nil
 }
 
 type Hours struct {

@@ -9,9 +9,10 @@ import (
 )
 
 // View is everything needed to draw one page. It has no reference to
-// a feed, a clock, or the replay engine — RenderSVG is a pure
-// function of this value plus Options. That is why a golden-file
-// test can lock the pixels: same View, same bytes.
+// a feed, a clock, or the replay engine — RenderSVG and WriteJSON
+// are both pure functions of this value. That is why a golden-file
+// test can lock the pixels and the browser can draw the same page:
+// same View, same facts.
 //
 // Overlays and Panels are drawn when present. Empty slices keep the
 // step-8 candle layout, so testdata/golden/candles_basic.svg stays

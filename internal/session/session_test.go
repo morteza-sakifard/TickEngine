@@ -1,6 +1,7 @@
 package session
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 )
@@ -225,5 +226,19 @@ func TestNQRegularSchedule_SharesESHours(t *testing.T) {
 	}
 	if want := ctTime(t, 2025, time.September, 23, 0, 0, 0); !trd.Equal(want) {
 		t.Fatalf("tradingDate = %v, want %v", trd, want)
+	}
+}
+
+func TestSessionJSON(t *testing.T) {
+	b, err := json.Marshal(RTH)
+	if err != nil || string(b) != `"RTH"` {
+		t.Fatalf("Marshal(RTH) = %s err=%v", b, err)
+	}
+	var s Session
+	if err := json.Unmarshal([]byte(`"ETH"`), &s); err != nil || s != ETH {
+		t.Fatalf("Unmarshal ETH = %v err=%v", s, err)
+	}
+	if err := json.Unmarshal([]byte(`"XYZ"`), &s); err == nil {
+		t.Fatal("unknown session name should error")
 	}
 }
