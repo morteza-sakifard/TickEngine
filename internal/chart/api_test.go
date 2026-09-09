@@ -65,7 +65,8 @@ func TestWriteJSONNilSideViewsAreNull(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := buf.String()
-	if !strings.Contains(s, `"Profile":null`) || !strings.Contains(s, `"Footprint":null`) || !strings.Contains(s, `"TPO":null`) {
+	if !strings.Contains(s, `"Profile":null`) || !strings.Contains(s, `"Footprint":null`) || !strings.Contains(s, `"TPO":null`) ||
+		!strings.Contains(s, `"Heatmap":null`) || !strings.Contains(s, `"DOM":null`) {
 		t.Fatalf("nil side views should stay null so the step-8 layout is visible on the wire: %s", s)
 	}
 }

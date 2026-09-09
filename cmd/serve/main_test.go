@@ -144,14 +144,15 @@ func TestEmbedIndexAndChartJS(t *testing.T) {
 	if !strings.Contains(idx.Body.String(), "replay.js") {
 		t.Fatal("index must load replay.js")
 	}
-	for _, name := range []string{"/footprint.js", "/profile.js", "/timesales.js"} {
+	for _, name := range []string{"/footprint.js", "/profile.js", "/timesales.js", "/heatmap.js"} {
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, httptest.NewRequest("GET", name, nil))
 		if rec.Code != 200 {
 			t.Fatalf("%s status %d", name, rec.Code)
 		}
 	}
-	if !strings.Contains(idx.Body.String(), "footprint.js") || !strings.Contains(idx.Body.String(), "timesales.js") {
+	if !strings.Contains(idx.Body.String(), "footprint.js") || !strings.Contains(idx.Body.String(), "timesales.js") ||
+		!strings.Contains(idx.Body.String(), "heatmap.js") {
 		t.Fatal("index must load order-flow scripts")
 	}
 	if !strings.Contains(src, "updateCrosshair") {

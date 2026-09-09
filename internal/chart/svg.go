@@ -59,6 +59,9 @@ func RenderSVG(w io.Writer, v View, o Options) error {
 	if hasTPO(v) {
 		priceRight -= tpoWidth
 	}
+	if hasDOM(v) {
+		priceRight -= domWidth
+	}
 	if priceRight <= left {
 		priceRight = left + 1
 	}
@@ -80,6 +83,9 @@ func RenderSVG(w io.Writer, v View, o Options) error {
 
 	writeHeader(w, v, loc)
 	writePriceGrid(w, v.Instrument, sc, outerRight+8)
+	if hasHeatmap(v) {
+		writeHeatmap(w, v.Heatmap, sc)
+	}
 	if hasFootprint(v) {
 		writeFootprint(w, v.Footprint, sc)
 	}
@@ -95,6 +101,10 @@ func RenderSVG(w io.Writer, v View, o Options) error {
 	}
 	writeMarks(w, v.Marks, sc)
 	side := priceRight
+	if hasDOM(v) {
+		writeDOM(w, v.DOM, v.Instrument, sc, side, side+domWidth)
+		side += domWidth
+	}
 	if hasTPO(v) {
 		writeTPO(w, v.TPO, sc, side, side+tpoWidth)
 		side += tpoWidth

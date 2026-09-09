@@ -27,6 +27,8 @@ type View struct {
 	Footprint  *FootprintView
 	TPO        *TPOView
 	Marks      []Mark
+	Heatmap    *HeatmapView
+	DOM        *DOMView // live ladder; nil keeps the step-8 width
 }
 
 // TPOView is the market-profile letter ladder. Levels are sorted by

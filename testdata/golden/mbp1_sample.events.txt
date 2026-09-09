@@ -1,0 +1,11 @@
+0 kind=quote instrument=294973 ts_event=1758499199878773407 ts_recv=1758499200000000000 ts_in_delta=0 sequence=144737 flags=LAST|SNAPSHOT|BAD_TS_RECV quote{bid_px=26859 bid_qty=9 bid_ct=7 ask_px=26860 ask_qty=11 ask_ct=10}
+1 kind=quote instrument=294973 ts_event=1758499200009394243 ts_recv=1758499200010483640 ts_in_delta=13065 sequence=144740 flags=LAST quote{bid_px=26859 bid_qty=9 bid_ct=7 ask_px=26860 ask_qty=12 ask_ct=11}
+2 kind=trade instrument=294973 ts_event=1758499200999000000 ts_recv=1758499201000000000 ts_in_delta=20000 sequence=144741 flags=LAST trade{px=26860 qty=3 aggressor=bid}
+3 kind=quote instrument=294973 ts_event=1758499200999000000 ts_recv=1758499201000000000 ts_in_delta=20000 sequence=144741 flags=LAST quote{bid_px=26859 bid_qty=9 bid_ct=7 ask_px=26860 ask_qty=9 ask_ct=8}
+4 kind=trade instrument=294973 ts_event=1758499201998000000 ts_recv=1758499202000000000 ts_in_delta=25000 sequence=144742 flags=LAST trade{px=26859 qty=5 aggressor=ask}
+5 kind=quote instrument=294973 ts_event=1758499201998000000 ts_recv=1758499202000000000 ts_in_delta=25000 sequence=144742 flags=LAST quote{bid_px=26859 bid_qty=4 bid_ct=3 ask_px=26860 ask_qty=9 ask_ct=8}
+6 kind=quote instrument=294973 ts_event=1758499202997000000 ts_recv=1758499203000000000 ts_in_delta=30000 sequence=144743 flags=LAST quote{bid_px=26859 bid_qty=4 bid_ct=3 ask_px=26860 ask_qty=9 ask_ct=8}
+7 kind=quote instrument=294973 ts_event=1758499203996000000 ts_recv=1758499204000000000 ts_in_delta=35000 sequence=144744 flags=LAST quote{bid_px=26861 bid_qty=2 bid_ct=1 ask_px=26860 ask_qty=9 ask_ct=8}
+8 kind=trade instrument=294973 ts_event=1758499204995000000 ts_recv=1758499205000000000 ts_in_delta=40000 sequence=144745 flags=LAST|MAYBE_BAD_BOOK trade{px=26860 qty=1 aggressor=none}
+9 kind=quote instrument=294973 ts_event=1758499204995000000 ts_recv=1758499205000000000 ts_in_delta=40000 sequence=144745 flags=LAST|MAYBE_BAD_BOOK quote{bid_px=26859 bid_qty=4 bid_ct=3 ask_px=26860 ask_qty=8 ask_ct=7}
+10 kind=quote instrument=294973 ts_event=1758499205994000000 ts_recv=1758499206000000000 ts_in_delta=45000 sequence=144746 flags=LAST quote{bid_px=26859 bid_qty=4 bid_ct=3 ask_px=9223372036854775807 ask_qty=0 ask_ct=0}

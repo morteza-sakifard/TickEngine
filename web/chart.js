@@ -1,7 +1,7 @@
 // Canvas renderer for chart.View. X is the bar index, not wall time:
 // a 15:30 bar and the 17:00 bar after the halt sit one slot apart,
 // the same rule as internal/chart/scale.go. Footprint / TPO / profile
-// are drawn by footprint.js / profile.js — same colors as the SVG.
+// / heatmap are drawn by their scripts — same colors as the SVG.
 //
 // draw() paints the visible window. applyBar patches one slot when
 // the y-range and the window stay put — that is the incremental
@@ -81,16 +81,18 @@
     }
     const tpoW = (state.reserveFlow || (state.view.TPO && state.view.TPO.Levels && state.view.TPO.Levels.length)) ? 100 : 0;
     const profW = (state.reserveFlow || (state.view.Profile && state.view.Profile.Levels && state.view.Profile.Levels.length)) ? 88 : 0;
+    const domW = (state.view.DOM && state.view.DOM.Levels && state.view.DOM.Levels.length) ? 80 : 0;
     const left = padL;
     const outerRight = w - padR;
-    const right = outerRight - tpoW - profW;
+    const right = outerRight - tpoW - profW - domW;
     const top = padT;
     const bottom = h - padB;
     const hasPanel = state.view.Panels && state.view.Panels.length > 0;
     const priceBottom = hasPanel ? bottom - (bottom - top) * 0.24 : bottom;
     return {
       w, h, left, right, outerRight, top, bottom, priceBottom,
-      tpoW: tpoW, profW: profW, tpoLeft: right, profLeft: right + tpoW,
+      tpoW: tpoW, profW: profW, tpoLeft: right + domW, profLeft: right + domW + tpoW,
+      domW: domW, domLeft: right,
     };
   }
 
@@ -219,13 +221,19 @@
       ctx.fillText(formatPrice(inst, px), box.outerRight + 8, y + 4);
     });
 
+    const ypx = function (px) { return yOf(px, box, pb); };
+    if (MDL.heatmap) {
+      MDL.heatmap.draw(ctx, box, vis, ypx, state.view.Heatmap);
+    }
     const hasFP = state.view.Footprint && state.view.Footprint.Bars && state.view.Footprint.Bars.length;
     for (let i = vis.i0; i < vis.i1; i++) drawCandle(box, vis, pb, i, hasFP);
     if (hasFP && MDL.footprint) {
-      MDL.footprint.draw(ctx, box, vis, function (px) { return yOf(px, box, pb); }, state.view.Footprint);
+      MDL.footprint.draw(ctx, box, vis, ypx, state.view.Footprint);
+    }
+    if (MDL.heatmap) {
+      MDL.heatmap.drawDOM(ctx, box, ypx, state.view.DOM);
     }
     if (MDL.profile) {
-      const ypx = function (px) { return yOf(px, box, pb); };
       MDL.profile.drawTPO(ctx, box, ypx, state.view.TPO);
       MDL.profile.drawProfile(ctx, box, ypx, state.view.Profile);
     }
@@ -346,10 +354,14 @@
       ctx.lineTo(left + slot, y);
       ctx.stroke();
     });
+    const ypx = function (px) { return yOf(px, box, pb); };
+    if (MDL.heatmap) {
+      MDL.heatmap.drawColumn(ctx, box, vis, ypx, state.view.Heatmap, index);
+    }
     const hasFP = state.view.Footprint && state.view.Footprint.Bars && state.view.Footprint.Bars.length;
     drawCandle(box, vis, pb, index, hasFP);
     if (hasFP && MDL.footprint) {
-      MDL.footprint.draw(ctx, box, vis, function (px) { return yOf(px, box, pb); }, state.view.Footprint);
+      MDL.footprint.draw(ctx, box, vis, ypx, state.view.Footprint);
     }
     const vals = (state.view.Overlays[0] && state.view.Overlays[0].Values) || [];
     if (vals.length > index) {
@@ -577,6 +589,12 @@
       }
     } else {
       lines.push(formatPrice(inst, px));
+    }
+    if (MDL.heatmap) {
+      const ht = MDL.heatmap.atHeat(state.view.Heatmap, barI, px);
+      const dm = MDL.heatmap.atDOM(state.view.DOM, px);
+      lines.push("HEAT bid " + ht.bid + "  ask " + ht.ask);
+      lines.push("DOM bid " + dm.bid + "  ask " + dm.ask + "  last " + dm.last);
     }
     if (MDL.profile) {
       const vp = MDL.profile.atProfile(state.view.Profile, px);

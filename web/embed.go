@@ -5,5 +5,5 @@ package web
 
 import "embed"
 
-//go:embed index.html chart.js replay.js footprint.js profile.js timesales.js
+//go:embed index.html chart.js replay.js footprint.js profile.js timesales.js heatmap.js
 var FS embed.FS
