@@ -12,6 +12,10 @@ import (
 // Without it a strategy that always submits never returns.
 const maxCascade = 32
 
+// ErrReconcileRequired is Run before the venue snapshot is applied.
+// OnStart has not been called.
+var ErrReconcileRequired = fmt.Errorf("strategy: reconcile required")
+
 // Strategy is the only type a runner should depend on. It sees the
 // market through Context, never through a file or a socket, so the
 // same value can run on a CSV Source today and a live Source later
@@ -48,6 +52,9 @@ func Run(src Source, s Strategy, rt *Runtime) error {
 	}
 	if rt == nil {
 		return fmt.Errorf("strategy: nil runtime")
+	}
+	if rt.needRec && !rt.reconciled {
+		return ErrReconcileRequired
 	}
 	if err := s.OnStart(rt); err != nil {
 		return err
@@ -122,6 +129,14 @@ func (rt *Runtime) apply(s Strategy, events []execution.OrderEvent) error {
 			before := rt.pos
 			rt.pos.Apply(rt.inst, e.Fill)
 			rt.blotter.Record(e.Fill, before, rt.pos)
+			if err := rt.recordFill(e.Fill); err != nil {
+				return err
+			}
+		}
+		if e.Status == execution.StatusCanceled || e.Status == execution.StatusRejected {
+			if err := rt.recordOrder(e.Order, e.Status); err != nil {
+				return err
+			}
 		}
 		if err := s.OnOrder(rt, e); err != nil {
 			return err

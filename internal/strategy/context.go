@@ -35,14 +35,18 @@ type Context interface {
 // is virtual and moves only on Observe: wall-clock reads are not
 // used, because they are neither replayable nor testable.
 type Runtime struct {
-	inst    core.Instrument
-	ns      int64
-	cache   Cache
-	log     io.Writer
-	venue   *execution.Venue
-	risk    *execution.Risk
-	pos     portfolio.Position
-	blotter portfolio.Blotter
+	inst         core.Instrument
+	ns           int64
+	cache        Cache
+	log          io.Writer
+	venue        *execution.Venue
+	risk         *execution.Risk
+	pos          portfolio.Position
+	blotter      portfolio.Blotter
+	store        *portfolio.Store
+	needRec      bool
+	reconciled   bool
+	localWorking []execution.Order
 }
 
 func NewRuntime(inst core.Instrument, log io.Writer) *Runtime {
@@ -90,6 +94,76 @@ func (rt *Runtime) SetRisk(r *execution.Risk) error {
 	}
 	rt.risk = r
 	return nil
+}
+
+func (rt *Runtime) SetStore(s *portfolio.Store) error {
+	if rt == nil {
+		return fmt.Errorf("strategy: nil runtime")
+	}
+	rt.store = s
+	return nil
+}
+
+func (rt *Runtime) Store() *portfolio.Store {
+	if rt == nil {
+		return nil
+	}
+	return rt.store
+}
+
+// RequireReconcile blocks Run until Reconcile succeeds. Backtests
+// that never call this keep the step-19 path.
+func (rt *Runtime) RequireReconcile() {
+	if rt != nil {
+		rt.needRec = true
+		rt.reconciled = false
+	}
+}
+
+func (rt *Runtime) Reconciled() bool {
+	return rt != nil && rt.reconciled
+}
+
+// Restore rebuilds Position and the blotter from the store. It
+// does not start the strategy and does not touch the venue —
+// Reconcile does that after the snapshot arrives.
+func (rt *Runtime) Restore() error {
+	if rt == nil {
+		return fmt.Errorf("strategy: nil runtime")
+	}
+	if rt.store == nil {
+		return fmt.Errorf("strategy: nil store")
+	}
+	rt.pos = portfolio.Position{}
+	rt.blotter = portfolio.Blotter{}
+	for _, f := range rt.store.Fills() {
+		before := rt.pos
+		rt.pos.Apply(rt.inst, f)
+		rt.blotter.Record(f, before, rt.pos)
+	}
+	rt.localWorking = rt.store.WorkingOrders()
+	if ts := rt.store.LastTs(); ts > rt.ns {
+		rt.ns = ts
+	}
+	return nil
+}
+
+// Reconcile applies the venue snapshot as truth, then allows Run.
+func (rt *Runtime) Reconcile(snap execution.Snapshot) (execution.Report, error) {
+	if rt == nil || rt.venue == nil {
+		return execution.Report{}, fmt.Errorf("strategy: nil runtime")
+	}
+	local := rt.localWorking
+	if rt.store != nil {
+		local = rt.store.WorkingOrders()
+	}
+	report := execution.Reconcile(local, snap)
+	if err := rt.venue.Adopt(report.Live(), snap.LastID); err != nil {
+		return report, err
+	}
+	rt.localWorking = report.Live()
+	rt.reconciled = true
+	return report, nil
 }
 
 func (rt *Runtime) Now() time.Time {
@@ -167,14 +241,46 @@ func (rt *Runtime) Submit(o execution.Order) (execution.OrderID, error) {
 			return 0, err
 		}
 	}
-	return rt.venue.Enqueue(o)
+	id, err := rt.venue.Enqueue(o)
+	if err != nil {
+		return 0, err
+	}
+	o.ID = id
+	if err := rt.recordOrder(o, 0); err != nil {
+		return id, err
+	}
+	return id, nil
 }
 
 func (rt *Runtime) Cancel(id execution.OrderID) error {
 	if rt == nil || rt.venue == nil {
 		return fmt.Errorf("strategy: nil runtime")
 	}
-	return rt.venue.Cancel(id)
+	if err := rt.venue.Cancel(id); err != nil {
+		return err
+	}
+	return rt.recordOrder(execution.Order{ID: id, Instrument: rt.inst.ID}, execution.StatusCanceled)
+}
+
+func (rt *Runtime) recordOrder(o execution.Order, st execution.Status) error {
+	if rt == nil || rt.store == nil {
+		return nil
+	}
+	return rt.store.AppendOrder(rt.ns, o, st)
+}
+
+func (rt *Runtime) recordFill(f execution.Fill) error {
+	if rt == nil || rt.store == nil {
+		return nil
+	}
+	ts := f.Ts
+	if ts == 0 {
+		ts = rt.ns
+	}
+	if err := rt.store.AppendFill(ts, f); err != nil {
+		return err
+	}
+	return rt.store.AppendPosition(ts, rt.pos)
 }
 
 func (rt *Runtime) Logf(format string, args ...any) {

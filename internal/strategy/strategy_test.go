@@ -596,6 +596,180 @@ func TestSetRiskGatesSubmit(t *testing.T) {
 	}
 }
 
+type startProbe struct {
+	started int
+	pos     portfolio.Position
+}
+
+func (s *startProbe) OnStart(ctx Context) error {
+	s.started++
+	s.pos = ctx.Position()
+	return nil
+}
+func (s *startProbe) OnStop(Context) error { return nil }
+func (s *startProbe) OnOrder(Context, execution.OrderEvent) error {
+	return nil
+}
+func (s *startProbe) OnEvent(Context, *marketdata.Event) error { return nil }
+
+type restOnce struct{ sent bool }
+
+func (s *restOnce) OnStart(Context) error { return nil }
+func (s *restOnce) OnStop(Context) error  { return nil }
+func (s *restOnce) OnOrder(Context, execution.OrderEvent) error {
+	return nil
+}
+func (s *restOnce) OnEvent(ctx Context, ev *marketdata.Event) error {
+	if s.sent || ev.Kind != marketdata.KindQuote {
+		return nil
+	}
+	s.sent = true
+	_, err := ctx.Submit(execution.Order{Side: core.SideBid, Qty: 1, Kind: execution.KindLimit, Px: 99})
+	return err
+}
+
+func TestRunRequiresReconcileBeforeOnStart(t *testing.T) {
+	rt := NewRuntime(core.ESZ5(), nil)
+	rt.RequireReconcile()
+	s := &startProbe{}
+	err := Run(&sliceSrc{}, s, rt)
+	if !errors.Is(err, ErrReconcileRequired) {
+		t.Fatalf("Run = %v, want ErrReconcileRequired", err)
+	}
+	if s.started != 0 {
+		t.Fatal("OnStart must not run before reconcile")
+	}
+}
+
+func TestRestartRestoresPositionFromStore(t *testing.T) {
+	src := &sliceSrc{evs: []marketdata.Event{{
+		Kind:   marketdata.KindQuote,
+		TsRecv: 10,
+		Quote:  marketdata.Quote{BidPx: 26800, AskPx: 26801},
+	}}}
+	store := portfolio.NewStore()
+	rt := NewRuntime(core.ESZ5(), nil)
+	if err := rt.SetStore(store); err != nil {
+		t.Fatal(err)
+	}
+	if err := Run(src, &buyOnce{}, rt); err != nil {
+		t.Fatal(err)
+	}
+	want := rt.Position()
+	if want.Qty != 1 || want.AvgPx != 26801 {
+		t.Fatalf("session1 pos = %+v", want)
+	}
+	var dump bytes.Buffer
+	if err := store.WriteTo(&dump); err != nil {
+		t.Fatal(err)
+	}
+
+	alive := storeFromDump(t, dump.Bytes())
+	rt2 := NewRuntime(core.ESZ5(), nil)
+	if err := rt2.SetStore(alive); err != nil {
+		t.Fatal(err)
+	}
+	rt2.RequireReconcile()
+	if err := rt2.Restore(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := rt2.Reconcile(execution.Snapshot{LastID: alive.LastID()}); err != nil {
+		t.Fatal(err)
+	}
+	s := &startProbe{}
+	if err := Run(&sliceSrc{}, s, rt2); err != nil {
+		t.Fatal(err)
+	}
+	if s.started != 1 {
+		t.Fatalf("OnStart count = %d", s.started)
+	}
+	if s.pos != want || rt2.Position() != want {
+		t.Fatalf("restart pos %+v, want %+v", rt2.Position(), want)
+	}
+}
+
+func TestRestartRestoresRestingLimit(t *testing.T) {
+	src := &sliceSrc{evs: []marketdata.Event{{
+		Kind:   marketdata.KindQuote,
+		TsRecv: 10,
+		Quote:  marketdata.Quote{BidPx: 100, AskPx: 101},
+	}}}
+	store := portfolio.NewStore()
+	rt := NewRuntime(core.ESZ5(), nil)
+	if err := rt.SetStore(store); err != nil {
+		t.Fatal(err)
+	}
+	if err := Run(src, &restOnce{}, rt); err != nil {
+		t.Fatal(err)
+	}
+	if rt.Position().Qty != 0 {
+		t.Fatal("limit at 99 must rest")
+	}
+	working := store.WorkingOrders()
+	if len(working) != 1 || working[0].Px != 99 {
+		t.Fatalf("store working = %+v", working)
+	}
+	var dump bytes.Buffer
+	if err := store.WriteTo(&dump); err != nil {
+		t.Fatal(err)
+	}
+
+	alive := storeFromDump(t, dump.Bytes())
+	rt2 := NewRuntime(core.ESZ5(), nil)
+	if err := rt2.SetStore(alive); err != nil {
+		t.Fatal(err)
+	}
+	if err := rt2.Restore(); err != nil {
+		t.Fatal(err)
+	}
+	snap := execution.Snapshot{Working: alive.WorkingOrders(), LastID: alive.LastID()}
+	rep, err := rt2.Reconcile(snap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rep.Keep) != 1 || len(rep.Ghost)+len(rep.Adopt) != 0 {
+		t.Fatalf("paper snapshot should keep the rest: %+v", rep)
+	}
+	got := rt2.venue.Working()
+	if len(got) != 1 || got[0].Px != 99 {
+		t.Fatalf("adopted working = %+v", got)
+	}
+}
+
+func TestReconcileDropsGhostAfterRestart(t *testing.T) {
+	store := portfolio.NewStore()
+	o := execution.Order{ID: 5, Side: core.SideBid, Qty: 1, Kind: execution.KindLimit, Px: 50}
+	if err := store.AppendOrder(1, o, 0); err != nil {
+		t.Fatal(err)
+	}
+	rt := NewRuntime(core.ESZ5(), nil)
+	if err := rt.SetStore(store); err != nil {
+		t.Fatal(err)
+	}
+	if err := rt.Restore(); err != nil {
+		t.Fatal(err)
+	}
+	rep, err := rt.Reconcile(execution.Snapshot{LastID: 5})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rep.Ghost) != 1 || rep.Ghost[0].ID != 5 {
+		t.Fatalf("want ghost 5, got %+v", rep)
+	}
+	if rt.venue.Working() != nil {
+		t.Fatal("ghost must not be adopted")
+	}
+}
+
+func storeFromDump(t *testing.T, raw []byte) *portfolio.Store {
+	t.Helper()
+	s := portfolio.NewStore()
+	if err := s.Load(bytes.NewReader(raw)); err != nil {
+		t.Fatal(err)
+	}
+	return s
+}
+
 func TestDepsExcludeFeed(t *testing.T) {
 	cmd := exec.Command("go", "list", "-deps", ".")
 	out, err := cmd.CombinedOutput()
