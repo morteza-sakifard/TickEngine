@@ -3,11 +3,13 @@ package main
 import (
 	"bytes"
 	"io"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/morteza-sakifard/market-data-lab/internal/core"
 	"github.com/morteza-sakifard/market-data-lab/internal/execution"
+	"github.com/morteza-sakifard/market-data-lab/internal/feed/databento"
 	"github.com/morteza-sakifard/market-data-lab/internal/marketdata"
 	"github.com/morteza-sakifard/market-data-lab/internal/portfolio"
 )
@@ -28,6 +30,18 @@ func (s *sliceSrc) Next(dst *marketdata.Event) error {
 
 func (s *sliceSrc) Close() error { return nil }
 
+func TestNewStrategy(t *testing.T) {
+	if _, err := newStrategy("buyhold"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := newStrategy("vwap2close"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := newStrategy("macd"); err == nil {
+		t.Fatal("unknown strategy should error")
+	}
+}
+
 func TestLookupInstrument(t *testing.T) {
 	got, err := lookupInstrument("ESZ5")
 	if err != nil || got.ID != core.ESZ5().ID {
@@ -45,7 +59,7 @@ func TestBuyHoldOneTick(t *testing.T) {
 		{Kind: marketdata.KindQuote, TsRecv: 2, Quote: marketdata.Quote{BidPx: x + 1, AskPx: x + 2}},
 	}}
 	var buf bytes.Buffer
-	pos, _, err := runBacktest(src, core.ESZ5(), execution.Fees{}, execution.Latency{}, &buf)
+	pos, _, err := runBacktest(src, core.ESZ5(), execution.Fees{}, execution.Latency{}, &buf, &buyHold{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,13 +73,34 @@ func TestBuyHoldOneTick(t *testing.T) {
 	}
 }
 
+func TestBuyHoldOnMBP10Fixture(t *testing.T) {
+	f, err := os.Open("../../testdata/mbp10_sample.csv")
+	if err != nil {
+		t.Fatal(err)
+	}
+	src, err := databento.Open(f, core.ESZ5(), databento.SchemaMBP10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer src.Close()
+	pos, _, err := runBacktest(src, core.ESZ5(), execution.Fees{}, execution.Latency{}, io.Discard, &buyHold{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// one quote: buy ask 6715.00 (26860), stop sells bid 6714.75 (26859)
+	want := -portfolio.CentsPerTick(core.ESZ5())
+	if pos.Qty != 0 || pos.Realized != want {
+		t.Fatalf("mbp10 fixture qty=%d realized=%d, want 0 and %d", pos.Qty, pos.Realized, want)
+	}
+}
+
 func TestBuyHoldFees(t *testing.T) {
 	const x core.Ticks = 26800
 	src := &sliceSrc{evs: []marketdata.Event{
 		{Kind: marketdata.KindQuote, TsRecv: 1, Quote: marketdata.Quote{BidPx: x - 1, AskPx: x}},
 	}}
 	fees := execution.Fees{CommissionCents: 100, FeeCents: 12}
-	pos, _, err := runBacktest(src, core.ESZ5(), fees, execution.Latency{}, io.Discard)
+	pos, _, err := runBacktest(src, core.ESZ5(), fees, execution.Latency{}, io.Discard, &buyHold{})
 	if err != nil {
 		t.Fatal(err)
 	}

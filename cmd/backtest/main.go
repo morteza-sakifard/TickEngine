@@ -24,12 +24,14 @@ func main() {
 	log.SetFlags(0)
 
 	var (
-		data       = flag.String("data", "", "path to the Databento MBP-1 CSV (required)")
+		data       = flag.String("data", "", "path to the Databento CSV (required)")
+		schema     = flag.String("schema", "mbp-1", "mbp-1, mbp-10, or mbo")
 		symbol     = flag.String("symbol", "", "contract symbol, e.g. ESZ5 (required)")
 		commission = flag.Int64("commission", 0, "commission per contract per fill, USD cents")
 		fee        = flag.Int64("fee", 0, "exchange fee per contract per fill, USD cents")
 		entry      = flag.Int64("entry-ns", 0, "order entry latency, nanoseconds")
 		response   = flag.Int64("response-ns", 0, "fill response latency, nanoseconds")
+		stratName  = flag.String("strategy", "vwap2close", "buyhold or vwap2close")
 	)
 	flag.Parse()
 
@@ -42,22 +44,31 @@ func main() {
 		log.Fatal(err)
 	}
 
+	sch, err := databento.ParseSchema(*schema)
+	if err != nil {
+		log.Fatal(err)
+	}
 	f, err := os.Open(*data)
 	if err != nil {
 		log.Fatal(err)
 	}
-	dec, err := databento.NewDecoder(f, inst)
+	dec, err := databento.Open(f, inst, sch)
 	if err != nil {
 		f.Close()
 		log.Fatal(err)
 	}
 	defer dec.Close()
 
+	s, err := newStrategy(*stratName)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	start := time.Now()
 	pos, unreal, err := runBacktest(dec, inst, execution.Fees{
 		CommissionCents: *commission,
 		FeeCents:        *fee,
-	}, execution.Latency{Entry: *entry, Response: *response}, os.Stdout)
+	}, execution.Latency{Entry: *entry, Response: *response}, os.Stdout, s)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -74,7 +85,18 @@ func lookupInstrument(symbol string) (core.Instrument, error) {
 	return inst, nil
 }
 
-func runBacktest(src feed.Source, inst core.Instrument, fees execution.Fees, lat execution.Latency, w io.Writer) (portfolio.Position, int64, error) {
+func newStrategy(name string) (strategy.Strategy, error) {
+	switch name {
+	case "buyhold":
+		return &buyHold{}, nil
+	case "vwap2close":
+		return strategy.NewVWAP2Close(), nil
+	default:
+		return nil, fmt.Errorf("backtest: unknown strategy %q (buyhold or vwap2close)", name)
+	}
+}
+
+func runBacktest(src feed.Source, inst core.Instrument, fees execution.Fees, lat execution.Latency, w io.Writer, s strategy.Strategy) (portfolio.Position, int64, error) {
 	rt := strategy.NewRuntime(inst, w)
 	if err := rt.SetFees(fees); err != nil {
 		return portfolio.Position{}, 0, err
@@ -82,7 +104,7 @@ func runBacktest(src feed.Source, inst core.Instrument, fees execution.Fees, lat
 	if err := rt.SetLatency(lat); err != nil {
 		return portfolio.Position{}, 0, err
 	}
-	if err := strategy.Run(src, &buyHold{}, rt); err != nil {
+	if err := strategy.Run(src, s, rt); err != nil {
 		return portfolio.Position{}, 0, err
 	}
 	pos := rt.Position()
