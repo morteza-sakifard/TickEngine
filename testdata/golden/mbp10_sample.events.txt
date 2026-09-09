@@ -1,0 +1,2 @@
+kind=quote instrument=294973 ts_event=1758499199878773407 ts_recv=1758499200000000000 ts_in_delta=0 sequence=144737 flags=LAST|SNAPSHOT|BAD_TS_RECV quote{bid_px=26859 bid_qty=9 bid_ct=7 ask_px=26860 ask_qty=11 ask_ct=10} depth1{bid_px=26858 bid_qty=17 ask_px=26861 ask_qty=13}
+kind=quote instrument=294973 ts_event=1758499200009394243 ts_recv=1758499200010483640 ts_in_delta=13065 sequence=144740 flags=LAST quote{bid_px=26859 bid_qty=9 bid_ct=7 ask_px=26860 ask_qty=12 ask_ct=11} depth1{bid_px=26858 bid_qty=17 ask_px=26861 ask_qty=13}

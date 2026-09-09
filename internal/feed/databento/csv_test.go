@@ -47,6 +47,13 @@ func formatEvent(e marketdata.Event) string {
 	case marketdata.KindQuote:
 		fmt.Fprintf(&b, " quote{bid_px=%d bid_qty=%d bid_ct=%d ask_px=%d ask_qty=%d ask_ct=%d}",
 			e.Quote.BidPx, e.Quote.BidQty, e.Quote.BidCt, e.Quote.AskPx, e.Quote.AskQty, e.Quote.AskCt)
+		if e.Depth.Bids[1].Qty != 0 || e.Depth.Asks[1].Qty != 0 {
+			fmt.Fprintf(&b, " depth1{bid_px=%d bid_qty=%d ask_px=%d ask_qty=%d}",
+				e.Depth.Bids[1].Px, e.Depth.Bids[1].Qty, e.Depth.Asks[1].Px, e.Depth.Asks[1].Qty)
+		}
+	case marketdata.KindBook:
+		fmt.Fprintf(&b, " book{action=%s id=%d side=%s px=%d qty=%d}",
+			e.Book.Action, e.Book.OrderID, e.Book.Side, e.Book.Px, e.Book.Qty)
 	}
 	return b.String()
 }

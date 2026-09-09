@@ -26,7 +26,8 @@ func main() {
 	log.SetFlags(0)
 
 	var (
-		data   = flag.String("data", "", "path to the Databento MBP-1 CSV (required)")
+		data   = flag.String("data", "", "path to the Databento CSV (required)")
+		schema = flag.String("schema", "mbp-1", "mbp-1, mbp-10, or mbo")
 		symbol = flag.String("symbol", "", "contract symbol, e.g. ESZ5 (required)")
 		speed  = flag.String("speed", "0", "0 = as fast as possible, 1 = real time, 100 = 100x")
 		step   = flag.Bool("step", false, "wait for Enter before each event after the first")
@@ -46,11 +47,15 @@ func main() {
 		log.Fatal(err)
 	}
 
+	sch, err := databento.ParseSchema(*schema)
+	if err != nil {
+		log.Fatal(err)
+	}
 	f, err := os.Open(*data)
 	if err != nil {
 		log.Fatal(err)
 	}
-	dec, err := databento.NewDecoder(f, inst)
+	dec, err := databento.Open(f, inst, sch)
 	if err != nil {
 		f.Close()
 		log.Fatal(err)

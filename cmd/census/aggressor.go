@@ -22,14 +22,18 @@ import (
 // since one CSV row can produce two events; that only matters for
 // quick manual testing, not for the real run (limit 0), which is the
 // one step 5's 95% acceptance criterion cares about.
-func runAggressorCheck(path string, inst core.Instrument, limit int64) (*validate.Aggressor, error) {
+func runAggressorCheck(path string, inst core.Instrument, limit int64, schema string) (*validate.Aggressor, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
 
-	d, err := databento.NewDecoder(f, inst)
+	sch, err := databento.ParseSchema(schema)
+	if err != nil {
+		return nil, err
+	}
+	d, err := databento.Open(f, inst, sch)
 	if err != nil {
 		return nil, err
 	}

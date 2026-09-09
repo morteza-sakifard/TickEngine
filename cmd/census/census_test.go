@@ -232,6 +232,9 @@ func runFixture(t *testing.T, opt Options) *Census {
 
 func TestCensusOnFixture(t *testing.T) {
 	c := runFixture(t, Options{})
+	if c.Schema != "mbp-1" {
+		t.Fatalf("Schema = %q, want mbp-1", c.Schema)
+	}
 
 	counts := []struct {
 		name string
@@ -339,8 +342,40 @@ func TestCensusMissingColumn(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error for a CSV missing required columns")
 	}
-	if !strings.Contains(err.Error(), "missing required column") {
-		t.Errorf("error = %v, want it to name the missing column", err)
+	if !strings.Contains(err.Error(), "missing required column") &&
+		!strings.Contains(err.Error(), "cannot detect schema") {
+		t.Errorf("error = %v, want missing column or detect failure", err)
+	}
+}
+
+func TestCensusOnMBOFixture(t *testing.T) {
+	data, err := os.ReadFile("../../testdata/mbo_sample.csv")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := Run(strings.NewReader(string(data)), Options{TickNano: 250_000_000, Loc: time.UTC})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Schema != "mbo" {
+		t.Fatalf("Schema = %q", c.Schema)
+	}
+	if c.Records < 2 || c.Actions["R"] != 1 || c.Actions["A"] == 0 {
+		t.Fatalf("mbo census records=%d R=%d A=%d", c.Records, c.Actions["R"], c.Actions["A"])
+	}
+	if c.QuoteBoth != 0 {
+		t.Fatal("MBO has no bid_px columns")
+	}
+}
+
+func TestCensusSchemaMismatch(t *testing.T) {
+	data, err := os.ReadFile(fixturePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = Run(strings.NewReader(string(data)), Options{TickNano: 250_000_000, Schema: "mbo"})
+	if err == nil {
+		t.Fatal("mbp-1 file with --schema mbo")
 	}
 }
 
@@ -357,7 +392,7 @@ func TestReportDoesNotPanic(t *testing.T) {
 	if buf.Len() == 0 {
 		t.Fatal("Report wrote nothing")
 	}
-	for _, want := range []string{"MBP-1 dataset census", "SNAPSHOT", "crossed", "ESZ5"} {
+	for _, want := range []string{"mbp-1 dataset census", "SNAPSHOT", "crossed", "ESZ5"} {
 		if !strings.Contains(buf.String(), want) {
 			t.Errorf("report is missing %q", want)
 		}

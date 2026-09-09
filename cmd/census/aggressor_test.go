@@ -9,7 +9,7 @@ import (
 )
 
 func TestRunAggressorCheckOnFixture(t *testing.T) {
-	agg, err := runAggressorCheck(fixturePath, core.ESZ5(), 0)
+	agg, err := runAggressorCheck(fixturePath, core.ESZ5(), 0, "mbp-1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +38,7 @@ func TestRunAggressorCheckOnFixture(t *testing.T) {
 }
 
 func TestReportAggressorDoesNotPanic(t *testing.T) {
-	agg, err := runAggressorCheck(fixturePath, core.ESZ5(), 0)
+	agg, err := runAggressorCheck(fixturePath, core.ESZ5(), 0, "mbp-1")
 	if err != nil {
 		t.Fatal(err)
 	}

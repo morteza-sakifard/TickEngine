@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strconv"
 	"time"
+
+	"github.com/morteza-sakifard/market-data-lab/internal/feed/databento"
 )
 
 const (
@@ -18,10 +20,16 @@ const (
 	undefSize = int64(math.MaxUint32)
 )
 
-var requiredColumns = []string{
+var requiredMBP = []string{
 	"ts_recv", "ts_event", "rtype", "publisher_id", "instrument_id",
 	"action", "side", "depth", "price", "size", "flags", "ts_in_delta",
 	"sequence", "bid_px_00", "ask_px_00", "bid_sz_00", "ask_sz_00", "symbol",
+}
+
+var requiredMBO = []string{
+	"ts_recv", "ts_event", "rtype", "publisher_id", "instrument_id",
+	"action", "side", "price", "size", "channel_id", "order_id",
+	"flags", "ts_in_delta", "sequence", "symbol",
 }
 
 // Expected value sets. Anything outside them is still counted and gets
@@ -35,7 +43,8 @@ var (
 type Options struct {
 	TickNano int64
 	Loc      *time.Location
-	Limit    int64 // 0 means no limit
+	Limit    int64  // 0 means no limit
+	Schema   string // empty = detect from header; mbp-1, mbp-10, mbo
 }
 
 // tsStat tracks range and monotonicity of one timestamp column.
@@ -109,6 +118,7 @@ type Census struct {
 
 	Records      int64
 	LimitReached bool
+	Schema       string
 
 	RType     map[string]int64
 	Publisher map[string]int64
@@ -208,13 +218,32 @@ func Run(r io.Reader, opt Options) (*Census, error) {
 	for i, name := range header {
 		col[name] = i
 	}
-	for _, name := range requiredColumns {
+	detected, err := databento.DetectSchema(header)
+	if err != nil {
+		return nil, err
+	}
+	want := detected
+	if opt.Schema != "" {
+		want, err = databento.ParseSchema(opt.Schema)
+		if err != nil {
+			return nil, err
+		}
+		if want != detected {
+			return nil, fmt.Errorf("census: --schema %s does not match header (%s)", want, detected)
+		}
+	}
+	required := requiredMBP
+	if want == databento.SchemaMBO {
+		required = requiredMBO
+	}
+	for _, name := range required {
 		if _, ok := col[name]; !ok {
 			return nil, fmt.Errorf("missing required column %q", name)
 		}
 	}
 
 	c := newCensus(opt)
+	c.Schema = want.String()
 	// ReuseRecord reuses the slice, so copy the header before the next Read.
 	c.Header = append([]string(nil), header...)
 
@@ -242,7 +271,9 @@ func (c *Census) observe(row []string, col map[string]int) {
 
 	c.RType[at("rtype")]++
 	c.Publisher[at("publisher_id")]++
-	c.Depth[at("depth")]++
+	if _, ok := col["depth"]; ok {
+		c.Depth[at("depth")]++
+	}
 
 	action, side := at("action"), at("side")
 	c.Actions[action]++
@@ -286,7 +317,9 @@ func (c *Census) observe(row []string, col map[string]int) {
 	recordPrice(&c.Price, pxNano, pxState, c.opt.TickNano)
 
 	size, sizeOK := c.observeSize(at("size"))
-	c.observeQuote(at("bid_px_00"), at("ask_px_00"))
+	if _, ok := col["bid_px_00"]; ok {
+		c.observeQuote(at("bid_px_00"), at("ask_px_00"))
+	}
 
 	sym := c.symbolStat(orEmpty(at("symbol")), at("instrument_id"))
 	sym.Records++

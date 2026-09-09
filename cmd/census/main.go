@@ -19,10 +19,11 @@ func main() {
 	log.SetFlags(0)
 
 	var (
-		data  = flag.String("data", "", "path to the Databento MBP-1 CSV file (required)")
-		limit = flag.Int64("limit", 0, "stop after N records; 0 means no limit")
-		tick  = flag.String("tick", "0.25", "instrument tick size as a decimal")
-		tzArg = flag.String("tz", "America/Chicago", "timezone used to group records by calendar day")
+		data   = flag.String("data", "", "path to the Databento CSV file (required)")
+		schema = flag.String("schema", "", "mbp-1, mbp-10, or mbo; empty detects from the header")
+		limit  = flag.Int64("limit", 0, "stop after N records; 0 means no limit")
+		tick   = flag.String("tick", "0.25", "instrument tick size as a decimal")
+		tzArg  = flag.String("tz", "America/Chicago", "timezone used to group records by calendar day")
 	)
 	flag.Parse()
 
@@ -51,7 +52,7 @@ func main() {
 	defer f.Close()
 
 	start := time.Now()
-	c, err := Run(f, Options{TickNano: tickNano, Loc: loc, Limit: *limit})
+	c, err := Run(f, Options{TickNano: tickNano, Loc: loc, Limit: *limit, Schema: *schema})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -59,7 +60,7 @@ func main() {
 
 	c.Report(os.Stdout)
 
-	agg, err := runAggressorCheck(*data, core.ESZ5(), *limit)
+	agg, err := runAggressorCheck(*data, core.ESZ5(), *limit, c.Schema)
 	if err != nil {
 		log.Fatal(err)
 	}

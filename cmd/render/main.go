@@ -29,7 +29,8 @@ func main() {
 	log.SetFlags(0)
 
 	var (
-		data     = flag.String("data", "", "path to the Databento MBP-1 CSV (required)")
+		data     = flag.String("data", "", "path to the Databento CSV (required)")
+		schema   = flag.String("schema", "mbp-1", "mbp-1, mbp-10, or mbo")
 		symbol   = flag.String("symbol", "", "contract symbol, e.g. ESZ5 (required)")
 		date     = flag.String("date", "", "trading date YYYY-MM-DD in the product calendar (required)")
 		sessName = flag.String("session", "", "RTH or ETH (required)")
@@ -64,11 +65,15 @@ func main() {
 		log.Fatal(err)
 	}
 
+	sch, err := databento.ParseSchema(*schema)
+	if err != nil {
+		log.Fatal(err)
+	}
 	f, err := os.Open(*data)
 	if err != nil {
 		log.Fatal(err)
 	}
-	dec, err := databento.NewDecoder(f, inst)
+	dec, err := databento.Open(f, inst, sch)
 	if err != nil {
 		f.Close()
 		log.Fatal(err)

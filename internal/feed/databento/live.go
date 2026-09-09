@@ -12,29 +12,6 @@ import (
 
 var _ feed.Source = (*Live)(nil)
 
-// Schema selects which historical decoder reads the bytes after
-// START. The live gateway in this lab speaks CSV so the same
-// NewDecoder / NewMBP10 / NewMBO path is reused. A later DBN
-// reader can sit behind the same Source.
-type Schema uint8
-
-const (
-	SchemaMBP1 Schema = iota + 1
-	SchemaMBP10
-	SchemaMBO
-)
-
-func (s Schema) name() string {
-	switch s {
-	case SchemaMBP10:
-		return "mbp-10"
-	case SchemaMBO:
-		return "mbo"
-	default:
-		return "mbp-1"
-	}
-}
-
 // LiveConfig is how to reach a gateway. Dial is required so this
 // file never opens a network itself and never reads the wall clock.
 // Reconnect is the live default: a dropped stream redials and asks
@@ -161,10 +138,10 @@ func (l *Live) loop() {
 
 func (l *Live) session(conn io.ReadWriteCloser) error {
 	if _, err := fmt.Fprintf(conn, "AUTH %s\nSUBSCRIBE %s %s\nSTART snapshot=1\n",
-		l.cfg.Key, l.cfg.Schema.name(), l.cfg.Symbol); err != nil {
+		l.cfg.Key, l.cfg.Schema.String(), l.cfg.Symbol); err != nil {
 		return err
 	}
-	src, err := openSchema(conn, l.cfg.Inst, l.cfg.Schema)
+	src, err := Open(conn, l.cfg.Inst, l.cfg.Schema)
 	if err != nil {
 		return err
 	}
@@ -185,17 +162,6 @@ func (l *Live) session(conn io.ReadWriteCloser) error {
 		if !l.send(ev) {
 			return io.EOF
 		}
-	}
-}
-
-func openSchema(rc io.ReadCloser, inst core.Instrument, schema Schema) (feed.Source, error) {
-	switch schema {
-	case SchemaMBP10:
-		return NewMBP10(rc, inst)
-	case SchemaMBO:
-		return NewMBO(rc, inst)
-	default:
-		return NewDecoder(rc, inst)
 	}
 }
 

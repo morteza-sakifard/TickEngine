@@ -13,7 +13,11 @@ func (c *Census) Report(w io.Writer) {
 	}
 
 	fmt.Fprintln(w, "===========================================================")
-	fmt.Fprintln(w, " MBP-1 dataset census")
+	if c.Schema == "" {
+		fmt.Fprintln(w, " dataset census")
+	} else {
+		fmt.Fprintf(w, " %s dataset census\n", c.Schema)
+	}
 	fmt.Fprintln(w, "===========================================================")
 	fmt.Fprintf(w, " %-26s %d\n", "records", c.Records)
 	if c.LimitReached {
@@ -28,14 +32,20 @@ func (c *Census) Report(w io.Writer) {
 
 	line()
 	fmt.Fprintln(w, " columns expected to be constant")
-	for _, e := range []struct {
+	consts := []struct {
 		name string
 		m    map[string]int64
 	}{
 		{"rtype", c.RType},
 		{"publisher_id", c.Publisher},
-		{"depth", c.Depth},
-	} {
+	}
+	if c.Schema != "mbo" {
+		consts = append(consts, struct {
+			name string
+			m    map[string]int64
+		}{"depth", c.Depth})
+	}
+	for _, e := range consts {
 		fmt.Fprintf(w, "   %s\n", e.name)
 		printCounts(w, e.m, nil)
 		if len(e.m) > 1 {
