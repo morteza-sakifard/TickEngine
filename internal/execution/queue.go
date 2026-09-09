@@ -9,7 +9,7 @@ import (
 
 // QueueModel decides when a resting limit moves forward. MBP-1
 // shows only the aggregated size at the touch, not order ids, so
-// true FIFO is impossible here (that is MBO, later).
+// true FIFO needs MBO (QueueL3).
 //
 // The simulated order is a ghost: it does not change the registered
 // book, so market impact is not modeled. Size you see is everyone
@@ -27,6 +27,9 @@ const (
 	// lost in front of you are decrease * ahead / level. No RNG:
 	// the function is the expectation, so two runs match.
 	QueueProportional
+	// QueueL3 walks the MBO FIFO in front of the ghost order.
+	// Cancels of those order ids move you up; new adds sit behind.
+	QueueL3
 )
 
 func (m QueueModel) String() string {
@@ -35,6 +38,8 @@ func (m QueueModel) String() string {
 		return "pessimistic"
 	case QueueProportional:
 		return "proportional"
+	case QueueL3:
+		return "l3"
 	default:
 		return "pessimistic"
 	}
@@ -45,6 +50,12 @@ type resting struct {
 	remaining core.Qty
 	ahead     core.Qty
 	joined    bool
+	aheadIDs  []aheadOrd
+}
+
+type aheadOrd struct {
+	id  uint64
+	qty core.Qty
 }
 
 func (v *Venue) SetQueueModel(m QueueModel) error {
@@ -52,7 +63,7 @@ func (v *Venue) SetQueueModel(m QueueModel) error {
 		return fmt.Errorf("execution: nil venue")
 	}
 	switch m {
-	case 0, QueuePessimistic, QueueProportional:
+	case 0, QueuePessimistic, QueueProportional, QueueL3:
 		v.model = m
 		return nil
 	default:
@@ -81,6 +92,10 @@ func (v *Venue) marketableLimit(o Order) (core.Ticks, bool) {
 }
 
 func (v *Venue) rest(o Order) {
+	if v.queueModel() == QueueL3 {
+		v.restL3(o)
+		return
+	}
 	r := resting{order: o, remaining: o.Qty}
 	if v.hasQ {
 		r.joined, r.ahead = joinAhead(o, v.quote)
@@ -156,6 +171,9 @@ func shrinkAhead(r *resting, prev, q marketdata.Quote) {
 }
 
 func (v *Venue) onTrade(ev *marketdata.Event) []OrderEvent {
+	if v.queueModel() == QueueL3 {
+		return v.onTradeL3(ev)
+	}
 	t := ev.Trade
 	ts := ev.TsRecv
 	var out []OrderEvent

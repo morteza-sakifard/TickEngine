@@ -66,6 +66,7 @@ func TestKindString(t *testing.T) {
 		{KindTrade, "trade"},
 		{KindQuote, "quote"},
 		{KindStatus, "status"},
+		{KindBook, "book"},
 		{Kind(0), "unknown"},
 	}
 	for _, tt := range tests {

@@ -5,6 +5,7 @@ import (
 
 	"github.com/morteza-sakifard/market-data-lab/internal/core"
 	"github.com/morteza-sakifard/market-data-lab/internal/marketdata"
+	"github.com/morteza-sakifard/market-data-lab/internal/orderbook"
 )
 
 // Venue is a simulated exchange. It does not import the strategy
@@ -22,6 +23,7 @@ type Venue struct {
 	delayed []delayedOrder
 	outbox  []delayedEvent
 	working []resting
+	book    *orderbook.L3
 }
 
 func NewVenue(fees Fees) *Venue {
@@ -127,6 +129,8 @@ func (v *Venue) MatchResting(ev *marketdata.Event) []OrderEvent {
 		raw = v.onTrade(ev)
 	case marketdata.KindQuote:
 		v.applyQuote(ev.Quote)
+	case marketdata.KindBook:
+		v.applyBook(ev)
 	}
 	return v.holdOrEmit(raw, ts)
 }

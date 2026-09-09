@@ -62,6 +62,13 @@ func (rt *Runtime) SetFees(fees execution.Fees) error {
 	return rt.venue.SetFees(fees)
 }
 
+func (rt *Runtime) SetQueueModel(m execution.QueueModel) error {
+	if rt == nil || rt.venue == nil {
+		return fmt.Errorf("strategy: nil runtime")
+	}
+	return rt.venue.SetQueueModel(m)
+}
+
 func (rt *Runtime) Now() time.Time {
 	if rt == nil {
 		return time.Unix(0, 0).UTC()
