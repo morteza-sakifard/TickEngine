@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/morteza-sakifard/market-data-lab/internal/core"
+	"github.com/morteza-sakifard/market-data-lab/internal/execution"
 	"github.com/morteza-sakifard/market-data-lab/internal/marketdata"
 	"github.com/morteza-sakifard/market-data-lab/internal/orderbook"
 	"github.com/morteza-sakifard/market-data-lab/internal/strategy"
@@ -217,6 +218,53 @@ func TestLiveCloseUnblocksNext(t *testing.T) {
 	}
 	if err := <-done; err == nil {
 		t.Fatal("Close must unblock Next")
+	}
+}
+
+type buyOnce struct {
+	sent bool
+}
+
+func (s *buyOnce) OnStart(strategy.Context) error { return nil }
+func (s *buyOnce) OnStop(strategy.Context) error  { return nil }
+func (s *buyOnce) OnOrder(strategy.Context, execution.OrderEvent) error {
+	return nil
+}
+func (s *buyOnce) OnEvent(ctx strategy.Context, ev *marketdata.Event) error {
+	if s.sent || ev.Kind != marketdata.KindQuote {
+		return nil
+	}
+	s.sent = true
+	_, err := ctx.Submit(execution.Order{Side: core.SideBid, Qty: 1})
+	return err
+}
+
+func TestLivePaperSimulatedExecution(t *testing.T) {
+	body := expectedHeader + "\n" + mbp1QuoteRow("128", "1", "6700.000000000", "6700.250000000")
+	g := startGW(t, body)
+	live, err := NewLive(LiveConfig{
+		Dial:             g.dial(),
+		Inst:             core.ESZ5(),
+		DisableReconnect: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = live.Close() })
+	paper, err := execution.NewPaper(execution.Fees{}, execution.Limits{MaxQty: 1, MaxAbsPosition: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt := strategy.NewRuntime(core.ESZ5(), nil)
+	if err := rt.SetPaper(paper); err != nil {
+		t.Fatal(err)
+	}
+	if err := strategy.Run(live, &buyOnce{}, rt); err != nil {
+		t.Fatal(err)
+	}
+	pos := rt.Position()
+	if pos.Qty != 1 || pos.AvgPx != 26801 {
+		t.Fatalf("live data + paper venue: qty=%d avg=%d, want 1 @ 26801 (ask), not an exchange order", pos.Qty, pos.AvgPx)
 	}
 }
 

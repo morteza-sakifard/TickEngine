@@ -3,6 +3,7 @@ package strategy
 import (
 	"bytes"
 	"crypto/sha256"
+	"errors"
 	"io"
 	"os"
 	"os/exec"
@@ -486,6 +487,113 @@ func (s *cancelOnSubmit) OnEvent(ctx Context, _ *marketdata.Event) error {
 	}
 	*s.done = true
 	return ctx.Cancel(id)
+}
+
+type buyOnce struct {
+	n      int
+	last   error
+	qty    core.Qty
+	ignore error
+}
+
+func (s *buyOnce) OnStart(Context) error { return nil }
+func (s *buyOnce) OnStop(Context) error  { return nil }
+func (s *buyOnce) OnOrder(Context, execution.OrderEvent) error {
+	return nil
+}
+func (s *buyOnce) OnEvent(ctx Context, ev *marketdata.Event) error {
+	if ev.Kind != marketdata.KindQuote {
+		return nil
+	}
+	s.n++
+	if s.n > 1 {
+		return nil
+	}
+	_, err := ctx.Submit(execution.Order{Side: core.SideBid, Qty: s.qtyOr1()})
+	s.last = err
+	if s.ignore != nil && errors.Is(err, s.ignore) {
+		return nil
+	}
+	return err
+}
+
+func (s *buyOnce) qtyOr1() core.Qty {
+	if s.qty == 0 {
+		return 1
+	}
+	return s.qty
+}
+
+func TestPaperLiveDataSimulatedFill(t *testing.T) {
+	src := &sliceSrc{evs: []marketdata.Event{{
+		Kind:   marketdata.KindQuote,
+		TsRecv: 10,
+		Quote:  marketdata.Quote{BidPx: 26800, AskPx: 26801, BidQty: 1, AskQty: 1},
+	}}}
+	paper, err := execution.NewPaper(execution.Fees{}, execution.Limits{MaxQty: 1, MaxAbsPosition: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt := NewRuntime(core.ESZ5(), nil)
+	if err := rt.SetPaper(paper); err != nil {
+		t.Fatal(err)
+	}
+	if err := Run(src, &buyOnce{}, rt); err != nil {
+		t.Fatal(err)
+	}
+	pos := rt.Position()
+	if pos.Qty != 1 || pos.AvgPx != 26801 {
+		t.Fatalf("paper fill qty=%d avg=%d, want 1 @ ask 26801 (simulated, not a broker)", pos.Qty, pos.AvgPx)
+	}
+}
+
+func TestPaperKillRejectsSubmit(t *testing.T) {
+	src := &sliceSrc{evs: []marketdata.Event{{
+		Kind:   marketdata.KindQuote,
+		TsRecv: 10,
+		Quote:  marketdata.Quote{BidPx: 1, AskPx: 2},
+	}}}
+	paper, err := execution.NewPaper(execution.Fees{}, execution.Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	paper.Kill()
+	rt := NewRuntime(core.ESZ5(), nil)
+	if err := rt.SetPaper(paper); err != nil {
+		t.Fatal(err)
+	}
+	s := &buyOnce{ignore: execution.ErrRiskKilled}
+	if err := Run(src, s, rt); err != nil {
+		t.Fatal(err)
+	}
+	if !errors.Is(s.last, execution.ErrRiskKilled) {
+		t.Fatalf("Submit after Kill: %v", s.last)
+	}
+	if rt.Position().Qty != 0 {
+		t.Fatal("killed submit must not fill")
+	}
+}
+
+func TestSetRiskGatesSubmit(t *testing.T) {
+	r, err := execution.NewRisk(execution.Limits{MaxQty: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt := NewRuntime(core.ESZ5(), nil)
+	if err := rt.SetRisk(r); err != nil {
+		t.Fatal(err)
+	}
+	rt.Observe(&marketdata.Event{
+		Kind:   marketdata.KindQuote,
+		TsRecv: 1,
+		Quote:  marketdata.Quote{BidPx: 1, AskPx: 2},
+	})
+	if _, err := rt.Submit(execution.Order{Side: core.SideBid, Qty: 3}); !errors.Is(err, execution.ErrRiskQty) {
+		t.Fatalf("SetRisk: %v", err)
+	}
+	if evs := rt.venue.Settle(1); evs != nil {
+		t.Fatalf("rejected submit reached the venue: %+v", evs)
+	}
 }
 
 func TestDepsExcludeFeed(t *testing.T) {

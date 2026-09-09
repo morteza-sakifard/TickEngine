@@ -40,6 +40,7 @@ type Runtime struct {
 	cache   Cache
 	log     io.Writer
 	venue   *execution.Venue
+	risk    *execution.Risk
 	pos     portfolio.Position
 	blotter portfolio.Blotter
 }
@@ -67,6 +68,28 @@ func (rt *Runtime) SetQueueModel(m execution.QueueModel) error {
 		return fmt.Errorf("strategy: nil runtime")
 	}
 	return rt.venue.SetQueueModel(m)
+}
+
+// SetPaper swaps in a simulated venue that is gated by Risk.
+// Same Source, same Strategy — orders still never leave the process.
+func (rt *Runtime) SetPaper(p *execution.Paper) error {
+	if rt == nil {
+		return fmt.Errorf("strategy: nil runtime")
+	}
+	if p == nil || p.Venue() == nil {
+		return fmt.Errorf("strategy: nil paper")
+	}
+	rt.venue = p.Venue()
+	rt.risk = p.Risk()
+	return nil
+}
+
+func (rt *Runtime) SetRisk(r *execution.Risk) error {
+	if rt == nil {
+		return fmt.Errorf("strategy: nil runtime")
+	}
+	rt.risk = r
+	return nil
 }
 
 func (rt *Runtime) Now() time.Time {
@@ -138,6 +161,11 @@ func (rt *Runtime) Submit(o execution.Order) (execution.OrderID, error) {
 	}
 	if o.Instrument == 0 {
 		o.Instrument = rt.inst.ID
+	}
+	if rt.risk != nil {
+		if err := rt.risk.Allow(o, rt.pos.Qty, rt.pos.Realized, rt.ns); err != nil {
+			return 0, err
+		}
 	}
 	return rt.venue.Enqueue(o)
 }
