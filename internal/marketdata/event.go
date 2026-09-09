@@ -55,6 +55,7 @@ type Event struct {
 
 	Trade Trade
 	Quote Quote
+	Depth Depth // KindQuote: L2 after the event; MBP-1 fills slot 0
 }
 
 // EventTime is TsEvent as a time.Time, for display and for code outside

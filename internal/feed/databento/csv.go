@@ -213,6 +213,7 @@ func (d *Decoder) Next(dst *marketdata.Event) error {
 		BidQty: core.Qty(bidSz), AskQty: core.Qty(askSz),
 		BidCt: uint32(bidCt), AskCt: uint32(askCt),
 	}
+	depth := marketdata.DepthFromQuote(quote)
 
 	// envelope is the part every Event split from this row shares.
 	envelope := marketdata.Event{
@@ -259,6 +260,7 @@ func (d *Decoder) Next(dst *marketdata.Event) error {
 		d.pendingEvt = envelope
 		d.pendingEvt.Kind = marketdata.KindQuote
 		d.pendingEvt.Quote = quote
+		d.pendingEvt.Depth = depth
 		d.pending = true
 		return nil
 	}
@@ -266,6 +268,7 @@ func (d *Decoder) Next(dst *marketdata.Event) error {
 	*dst = envelope
 	dst.Kind = marketdata.KindQuote
 	dst.Quote = quote
+	dst.Depth = depth
 	return nil
 }
 
@@ -283,20 +286,25 @@ func trimRow(b []byte) []byte {
 // comma-separated field in line and reports n. It never allocates:
 // slicing a []byte, unlike converting one to a string, never copies.
 func splitFields(line []byte, out *[numColumns][2]int) int {
+	return splitFieldsN(line, out[:])
+}
+
+func splitFieldsN(line []byte, out [][2]int) int {
 	n := 0
 	start := 0
 	end := len(line)
 	for end > 0 && (line[end-1] == '\n' || line[end-1] == '\r') {
 		end--
 	}
-	for i := 0; i < end && n < numColumns; i++ {
+	max := len(out)
+	for i := 0; i < end && n < max; i++ {
 		if line[i] == ',' {
 			out[n] = [2]int{start, i}
 			n++
 			start = i + 1
 		}
 	}
-	if n < numColumns {
+	if n < max {
 		out[n] = [2]int{start, end}
 		n++
 	}
@@ -310,7 +318,25 @@ func splitFields(line []byte, out *[numColumns][2]int) int {
 // before ever putting it in a returned error, instead of embedding
 // it directly. See the leak comment on core.ParsePriceNano.
 func field(line []byte, offs *[numColumns][2]int, i int) string {
+	return fieldN(line, offs[:], i)
+}
+
+func fieldN(line []byte, offs [][2]int, i int) string {
 	return string(line[offs[i][0]:offs[i][1]])
+}
+
+// parseBookPx is the UNDEF_PRICE passthrough used by MBP-1 and MBP-10
+// book columns. A sentinel is not a tick multiple; TicksFrom would
+// reject it.
+func parseBookPx(inst core.Instrument, s string) (core.Ticks, error) {
+	nano, err := core.ParsePriceNano(s)
+	if err != nil {
+		return 0, err
+	}
+	if nano == math.MaxInt64 || nano == math.MinInt64 {
+		return core.Ticks(nano), nil
+	}
+	return inst.TicksFrom(nano)
 }
 
 // parseTsNano converts Databento's RFC3339Nano timestamp text straight
