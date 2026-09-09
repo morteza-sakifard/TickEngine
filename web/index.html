@@ -1,61 +1,150 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>market-data-lab</title>
-  <style>
-    html, body { margin: 0; height: 100%; background: #fff; color: #222; font: 13px/1.4 ui-monospace, monospace; }
-    body { display: flex; flex-direction: column; }
-    header { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #e6e6e6; flex-wrap: wrap; }
-    header h1 { font-size: 13px; font-weight: 600; margin: 0; flex: 1; min-width: 12em; }
-    button, select { font: inherit; padding: 2px 8px; cursor: pointer; }
-    button[aria-pressed="true"] { background: #222; color: #fff; border-color: #222; }
-    #hint { color: #6b7280; }
-    #err { color: #b42318; padding: 8px 12px; display: none; }
-    #main { flex: 1; display: flex; min-height: 0; }
-    #stage { flex: 1; position: relative; min-width: 0; }
-    #chart, #hair { position: absolute; inset: 0; width: 100%; height: 100%; }
-    #hair { pointer-events: none; }
-    #hud { position: absolute; left: 20px; top: 8px; background: rgba(255,255,255,0.92); border: 1px solid #e6e6e6; padding: 6px 8px; pointer-events: none; display: none; white-space: pre; z-index: 2; }
-    #tape { width: 220px; border-left: 1px solid #e6e6e6; overflow: auto; padding: 6px 8px; }
-    #tape .buy { color: #1b7f3a; }
-    #tape .sell { color: #b42318; }
-    #tape .on { background: #fef3c7; }
-  </style>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    <title>market-data-lab</title>
+    <style>
+        html, body {
+            margin: 0;
+            height: 100%;
+            background: #fff;
+            color: #222;
+            font: 13px/1.4 ui-monospace, monospace;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-bottom: 1px solid #e6e6e6;
+            flex-wrap: wrap;
+        }
+
+        header h1 {
+            font-size: 13px;
+            font-weight: 600;
+            margin: 0;
+            flex: 1;
+            min-width: 12em;
+        }
+
+        button, select {
+            font: inherit;
+            padding: 2px 8px;
+            cursor: pointer;
+        }
+
+        button[aria-pressed="true"] {
+            background: #222;
+            color: #fff;
+            border-color: #222;
+        }
+
+        #hint {
+            color: #6b7280;
+        }
+
+        #err {
+            color: #b42318;
+            padding: 8px 12px;
+            display: none;
+        }
+
+        #main {
+            flex: 1;
+            display: flex;
+            min-height: 0;
+        }
+
+        #stage {
+            flex: 1;
+            position: relative;
+            min-width: 0;
+        }
+
+        #chart, #hair {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        #hair {
+            pointer-events: none;
+        }
+
+        #hud {
+            position: absolute;
+            left: 20px;
+            top: 8px;
+            background: rgba(255, 255, 255, 0.92);
+            border: 1px solid #e6e6e6;
+            padding: 6px 8px;
+            pointer-events: none;
+            display: none;
+            white-space: pre;
+            z-index: 2;
+        }
+
+        #tape {
+            width: 220px;
+            border-left: 1px solid #e6e6e6;
+            overflow: auto;
+            padding: 6px 8px;
+        }
+
+        #tape .buy {
+            color: #1b7f3a;
+        }
+
+        #tape .sell {
+            color: #b42318;
+        }
+
+        #tape .on {
+            background: #fef3c7;
+        }
+    </style>
 </head>
 <body>
-  <header>
+<header>
     <h1 id="title">loading…</h1>
     <button type="button" id="btn-play">Play</button>
     <button type="button" id="btn-pause">Pause</button>
     <button type="button" id="btn-full">Full</button>
     <label>speed
-      <select id="speed">
-        <option value="0" selected>0 · fastest</option>
-        <option value="1">1 · real</option>
-        <option value="10">10×</option>
-        <option value="100">100×</option>
-      </select>
+        <select id="speed">
+            <option selected value="0">0 · fastest</option>
+            <option value="1">1 · real</option>
+            <option value="10">10×</option>
+            <option value="100">100×</option>
+        </select>
     </label>
     <span id="hint">crosshair reads every pane · wheel zoom</span>
     <button type="button" id="btn-rth" aria-pressed="false">RTH</button>
     <button type="button" id="btn-eth" aria-pressed="false">ETH</button>
-  </header>
-  <div id="err"></div>
-  <div id="main">
+</header>
+<div id="err"></div>
+<div id="main">
     <div id="stage">
-      <canvas id="chart"></canvas>
-      <canvas id="hair"></canvas>
-      <div id="hud"></div>
+        <canvas id="chart"></canvas>
+        <canvas id="hair"></canvas>
+        <div id="hud"></div>
     </div>
     <aside id="tape"></aside>
-  </div>
-  <script src="/footprint.js"></script>
-  <script src="/profile.js"></script>
-  <script src="/heatmap.js"></script>
-  <script src="/timesales.js"></script>
-  <script src="/chart.js"></script>
-  <script src="/replay.js"></script>
+</div>
+<script src="/footprint.js"></script>
+<script src="/profile.js"></script>
+<script src="/heatmap.js"></script>
+<script src="/timesales.js"></script>
+<script src="/chart.js"></script>
+<script src="/replay.js"></script>
 </body>
 </html>
