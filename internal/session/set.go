@@ -5,8 +5,7 @@ package session
 //
 // The zero value means every open session (RTH and ETH). A BarSpec
 // that never sets Sessions therefore sees every trade Classify
-// assigns to RTH or ETH — the same as ohlcv.Builder, which
-// classified every trade and never filtered.
+// assigns to RTH or ETH.
 type Set uint8
 
 const (
