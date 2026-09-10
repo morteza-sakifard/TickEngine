@@ -1,6 +1,6 @@
 package marketdata
 
-import "github.com/morteza-sakifard/market-data-lab/internal/core"
+import "github.com/morteza-sakifard/TickEngine/internal/core"
 
 // Trade is a single execution. Aggressor is the side of the market
 // order that triggered it, not the side of the resting order it hit:

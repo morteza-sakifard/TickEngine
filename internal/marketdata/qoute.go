@@ -1,6 +1,6 @@
 package marketdata
 
-import "github.com/morteza-sakifard/market-data-lab/internal/core"
+import "github.com/morteza-sakifard/TickEngine/internal/core"
 
 // Quote is the top-of-book state after an event, exactly as MBP-1
 // carries it in bid_px_00..ask_ct_00: BidCt/AskCt are the number of

@@ -1,8 +1,8 @@
 package orderflow
 
 import (
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
-	"github.com/morteza-sakifard/market-data-lab/internal/marketdata"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/marketdata"
 )
 
 // CVD is the running sum of Delta. Divergence versus price — price

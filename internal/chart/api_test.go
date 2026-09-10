@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/session"
+	"github.com/morteza-sakifard/TickEngine/internal/session"
 )
 
 func TestWriteJSONDeterministic(t *testing.T) {

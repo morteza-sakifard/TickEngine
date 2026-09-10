@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/aggregation"
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/aggregation"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
 )
 
 func TestIndexByTime(t *testing.T) {

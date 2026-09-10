@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/feed"
-	"github.com/morteza-sakifard/market-data-lab/internal/marketdata"
+	"github.com/morteza-sakifard/TickEngine/internal/feed"
+	"github.com/morteza-sakifard/TickEngine/internal/marketdata"
 )
 
 // Handler is invoked synchronously, in Subscribe order, for every

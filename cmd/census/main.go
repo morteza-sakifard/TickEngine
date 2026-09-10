@@ -12,7 +12,7 @@ import (
 	// binary leaves this GOROOT.
 	_ "time/tzdata"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
 )
 
 func main() {

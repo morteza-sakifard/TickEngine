@@ -10,11 +10,11 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
-	"github.com/morteza-sakifard/market-data-lab/internal/execution"
-	"github.com/morteza-sakifard/market-data-lab/internal/marketdata"
-	"github.com/morteza-sakifard/market-data-lab/internal/orderbook"
-	"github.com/morteza-sakifard/market-data-lab/internal/strategy"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/execution"
+	"github.com/morteza-sakifard/TickEngine/internal/marketdata"
+	"github.com/morteza-sakifard/TickEngine/internal/orderbook"
+	"github.com/morteza-sakifard/TickEngine/internal/strategy"
 )
 
 func mbp1QuoteRow(flags, seq, bid, ask string) string {

@@ -1,8 +1,8 @@
 package portfolio
 
 import (
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
-	"github.com/morteza-sakifard/market-data-lab/internal/marketdata"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/marketdata"
 )
 
 // CentsPerTick is the dollar value of one tick, in integer cents.

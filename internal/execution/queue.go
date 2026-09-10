@@ -3,8 +3,8 @@ package execution
 import (
 	"fmt"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
-	"github.com/morteza-sakifard/market-data-lab/internal/marketdata"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/marketdata"
 )
 
 // QueueModel decides when a resting limit moves forward. MBP-1

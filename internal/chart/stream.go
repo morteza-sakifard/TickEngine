@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"io"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/aggregation"
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/aggregation"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
 )
 
 // Frame is one WebSocket message. The same View fields move here in

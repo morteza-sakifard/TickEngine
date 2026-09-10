@@ -3,7 +3,7 @@ package marketdata
 import (
 	"testing"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
 )
 
 func TestQuoteSpread(t *testing.T) {

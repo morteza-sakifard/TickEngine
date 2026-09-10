@@ -3,8 +3,8 @@ package orderflow
 import (
 	"sort"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
-	"github.com/morteza-sakifard/market-data-lab/internal/marketdata"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/marketdata"
 )
 
 // FootprintLevel is one bid×ask row. Buy is aggressive lifts (SideBid);

@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
-	"github.com/morteza-sakifard/market-data-lab/internal/marketdata"
-	"github.com/morteza-sakifard/market-data-lab/internal/session"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/marketdata"
+	"github.com/morteza-sakifard/TickEngine/internal/session"
 )
 
 func chicago(t *testing.T) *time.Location {

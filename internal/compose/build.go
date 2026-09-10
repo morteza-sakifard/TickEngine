@@ -9,13 +9,13 @@ import (
 	"io"
 	"time"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/aggregation"
-	"github.com/morteza-sakifard/market-data-lab/internal/chart"
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
-	"github.com/morteza-sakifard/market-data-lab/internal/feed"
-	"github.com/morteza-sakifard/market-data-lab/internal/marketdata"
-	"github.com/morteza-sakifard/market-data-lab/internal/orderflow"
-	"github.com/morteza-sakifard/market-data-lab/internal/session"
+	"github.com/morteza-sakifard/TickEngine/internal/aggregation"
+	"github.com/morteza-sakifard/TickEngine/internal/chart"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/feed"
+	"github.com/morteza-sakifard/TickEngine/internal/marketdata"
+	"github.com/morteza-sakifard/TickEngine/internal/orderflow"
+	"github.com/morteza-sakifard/TickEngine/internal/session"
 )
 
 // Spec is the page to build: one trading date, one session set,

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/aggregation"
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/aggregation"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
 )
 
 // Mark is a fill (or signal) on the price pane. Index is a bar

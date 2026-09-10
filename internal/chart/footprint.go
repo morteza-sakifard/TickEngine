@@ -5,7 +5,7 @@ import (
 	"io"
 	"math"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
 )
 
 const imbColor = "#eab308"

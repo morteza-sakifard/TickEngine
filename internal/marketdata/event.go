@@ -3,7 +3,7 @@ package marketdata
 import (
 	"time"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
 )
 
 // Kind discriminates the payloads Event can carry. See

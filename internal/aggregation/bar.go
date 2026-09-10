@@ -3,9 +3,9 @@ package aggregation
 import (
 	"time"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
-	"github.com/morteza-sakifard/market-data-lab/internal/marketdata"
-	"github.com/morteza-sakifard/market-data-lab/internal/session"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/marketdata"
+	"github.com/morteza-sakifard/TickEngine/internal/session"
 )
 
 type Bar struct {

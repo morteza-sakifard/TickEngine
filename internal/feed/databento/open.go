@@ -5,8 +5,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
-	"github.com/morteza-sakifard/market-data-lab/internal/feed"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/feed"
 )
 
 // Schema selects which CSV decoder Open uses. Zero means MBP-1.

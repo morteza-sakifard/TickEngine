@@ -1,6 +1,6 @@
 package feed
 
-import "github.com/morteza-sakifard/market-data-lab/internal/marketdata"
+import "github.com/morteza-sakifard/TickEngine/internal/marketdata"
 
 // Source produces normalized market-data events, one at a time, in the
 // order they should be observed: for a single row that implies both a

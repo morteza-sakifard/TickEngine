@@ -9,8 +9,8 @@ package validate
 import (
 	"math"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
-	"github.com/morteza-sakifard/market-data-lab/internal/marketdata"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/marketdata"
 )
 
 // Category classifies one Trade against the Quote that was in force

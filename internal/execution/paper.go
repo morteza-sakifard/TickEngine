@@ -3,7 +3,7 @@ package execution
 import (
 	"fmt"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
 )
 
 // Paper is market data (file or socket) plus a simulated venue.

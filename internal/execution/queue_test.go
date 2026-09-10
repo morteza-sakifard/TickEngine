@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
-	"github.com/morteza-sakifard/market-data-lab/internal/marketdata"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/marketdata"
 )
 
 func restLimit(t *testing.T, side core.Side, px core.Ticks, qty, ahead core.Qty) *Venue {

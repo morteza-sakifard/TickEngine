@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
-	"github.com/morteza-sakifard/market-data-lab/internal/feed/validate"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/feed/validate"
 )
 
 func TestRunAggressorCheckOnFixture(t *testing.T) {

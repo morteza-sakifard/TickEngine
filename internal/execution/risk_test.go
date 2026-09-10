@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
 )
 
 func TestRiskNilAllow(t *testing.T) {

@@ -11,13 +11,13 @@ import (
 	"os"
 	"time"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
-	"github.com/morteza-sakifard/market-data-lab/internal/execution"
-	"github.com/morteza-sakifard/market-data-lab/internal/feed"
-	"github.com/morteza-sakifard/market-data-lab/internal/feed/databento"
-	"github.com/morteza-sakifard/market-data-lab/internal/marketdata"
-	"github.com/morteza-sakifard/market-data-lab/internal/portfolio"
-	"github.com/morteza-sakifard/market-data-lab/internal/strategy"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/execution"
+	"github.com/morteza-sakifard/TickEngine/internal/feed"
+	"github.com/morteza-sakifard/TickEngine/internal/feed/databento"
+	"github.com/morteza-sakifard/TickEngine/internal/marketdata"
+	"github.com/morteza-sakifard/TickEngine/internal/portfolio"
+	"github.com/morteza-sakifard/TickEngine/internal/strategy"
 )
 
 func main() {

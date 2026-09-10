@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
-	"github.com/morteza-sakifard/market-data-lab/internal/marketdata"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/marketdata"
 )
 
 // -update regenerates testdata/golden/mbp1_sample.events.txt from the

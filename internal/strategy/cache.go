@@ -1,6 +1,6 @@
 package strategy
 
-import "github.com/morteza-sakifard/market-data-lab/internal/marketdata"
+import "github.com/morteza-sakifard/TickEngine/internal/marketdata"
 
 // Cache is the current market as of the last Observe. It stores
 // values, not pointers: Next overwrites the Event buffer, and a

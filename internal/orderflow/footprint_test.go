@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
 )
 
 func addFP(fp *Footprint, px, qty int64, side core.Side) {

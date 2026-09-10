@@ -3,7 +3,7 @@ package session
 import (
 	"time"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
 )
 
 type Clock struct {

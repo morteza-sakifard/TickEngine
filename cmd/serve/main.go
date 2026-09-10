@@ -14,14 +14,14 @@ import (
 
 	_ "time/tzdata"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/aggregation"
-	"github.com/morteza-sakifard/market-data-lab/internal/chart"
-	"github.com/morteza-sakifard/market-data-lab/internal/compose"
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
-	"github.com/morteza-sakifard/market-data-lab/internal/feed/databento"
-	"github.com/morteza-sakifard/market-data-lab/internal/marketdata"
-	"github.com/morteza-sakifard/market-data-lab/internal/session"
-	"github.com/morteza-sakifard/market-data-lab/web"
+	"github.com/morteza-sakifard/TickEngine/internal/aggregation"
+	"github.com/morteza-sakifard/TickEngine/internal/chart"
+	"github.com/morteza-sakifard/TickEngine/internal/compose"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/feed/databento"
+	"github.com/morteza-sakifard/TickEngine/internal/marketdata"
+	"github.com/morteza-sakifard/TickEngine/internal/session"
+	"github.com/morteza-sakifard/TickEngine/web"
 )
 
 func main() {

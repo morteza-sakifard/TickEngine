@@ -3,8 +3,8 @@ package orderflow
 import (
 	"sort"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
-	"github.com/morteza-sakifard/market-data-lab/internal/marketdata"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/marketdata"
 )
 
 // PriceLevel is one row of a volume profile. Price is Ticks, never

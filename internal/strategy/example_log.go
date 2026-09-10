@@ -1,8 +1,8 @@
 package strategy
 
 import (
-	"github.com/morteza-sakifard/market-data-lab/internal/execution"
-	"github.com/morteza-sakifard/market-data-lab/internal/marketdata"
+	"github.com/morteza-sakifard/TickEngine/internal/execution"
+	"github.com/morteza-sakifard/TickEngine/internal/marketdata"
 )
 
 // LogStrategy writes one line per callback and does nothing else.

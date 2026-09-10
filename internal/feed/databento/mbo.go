@@ -6,9 +6,9 @@ import (
 	"io"
 	"strconv"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
-	"github.com/morteza-sakifard/market-data-lab/internal/feed"
-	"github.com/morteza-sakifard/market-data-lab/internal/marketdata"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/feed"
+	"github.com/morteza-sakifard/TickEngine/internal/marketdata"
 )
 
 var _ feed.Source = (*MBO)(nil)

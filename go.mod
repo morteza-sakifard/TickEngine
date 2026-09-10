@@ -1,3 +1,3 @@
-module github.com/morteza-sakifard/market-data-lab
+module github.com/morteza-sakifard/TickEngine
 
 go 1.27.0

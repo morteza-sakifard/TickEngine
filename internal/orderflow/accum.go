@@ -1,6 +1,6 @@
 package orderflow
 
-import "github.com/morteza-sakifard/market-data-lab/internal/marketdata"
+import "github.com/morteza-sakifard/TickEngine/internal/marketdata"
 
 // Accumulator is the contract every order-flow stat implements.
 // None of them know what a session is: Reset is called from

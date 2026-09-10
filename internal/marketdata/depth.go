@@ -1,6 +1,6 @@
 package marketdata
 
-import "github.com/morteza-sakifard/market-data-lab/internal/core"
+import "github.com/morteza-sakifard/TickEngine/internal/core"
 
 // MaxDepth is Databento MBP-10. MBP-1 fills only slot 0.
 const MaxDepth = 10

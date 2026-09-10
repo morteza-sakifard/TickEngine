@@ -4,8 +4,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
-	"github.com/morteza-sakifard/market-data-lab/internal/marketdata"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/marketdata"
 )
 
 // TPOPeriod is one market-profile letter. RTH 08:30–15:00 is 13 of

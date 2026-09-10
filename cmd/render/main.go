@@ -16,13 +16,13 @@ import (
 	// binaries that have left this GOROOT.
 	_ "time/tzdata"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/aggregation"
-	"github.com/morteza-sakifard/market-data-lab/internal/chart"
-	"github.com/morteza-sakifard/market-data-lab/internal/compose"
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
-	"github.com/morteza-sakifard/market-data-lab/internal/feed"
-	"github.com/morteza-sakifard/market-data-lab/internal/feed/databento"
-	"github.com/morteza-sakifard/market-data-lab/internal/session"
+	"github.com/morteza-sakifard/TickEngine/internal/aggregation"
+	"github.com/morteza-sakifard/TickEngine/internal/chart"
+	"github.com/morteza-sakifard/TickEngine/internal/compose"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/feed"
+	"github.com/morteza-sakifard/TickEngine/internal/feed/databento"
+	"github.com/morteza-sakifard/TickEngine/internal/session"
 )
 
 func main() {

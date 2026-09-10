@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
 )
 
 func addVP(vp *VolumeProfile, px, qty int64) {

@@ -3,8 +3,8 @@ package portfolio
 import (
 	"fmt"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
-	"github.com/morteza-sakifard/market-data-lab/internal/execution"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/execution"
 )
 
 // Entry is one fill as the blotter saw it. PnL is the change in

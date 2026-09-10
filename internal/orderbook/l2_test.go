@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
-	"github.com/morteza-sakifard/market-data-lab/internal/feed/databento"
-	"github.com/morteza-sakifard/market-data-lab/internal/marketdata"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/feed/databento"
+	"github.com/morteza-sakifard/TickEngine/internal/marketdata"
 )
 
 func quoteEv(seq uint32, flags marketdata.Flags, bidPx, askPx core.Ticks, bidQty, askQty core.Qty) marketdata.Event {

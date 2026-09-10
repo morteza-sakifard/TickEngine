@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/aggregation"
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
-	"github.com/morteza-sakifard/market-data-lab/internal/session"
+	"github.com/morteza-sakifard/TickEngine/internal/aggregation"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/session"
 )
 
 var updateGolden = flag.Bool("update", false, "write testdata/golden/candles_basic.svg")

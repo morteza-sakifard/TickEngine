@@ -3,8 +3,8 @@ package chart
 import (
 	"math"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/aggregation"
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/aggregation"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
 )
 
 // Scale maps Ticks → y and bar index → x. X is the bar index, not

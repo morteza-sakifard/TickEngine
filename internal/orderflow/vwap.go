@@ -1,8 +1,8 @@
 package orderflow
 
 import (
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
-	"github.com/morteza-sakifard/market-data-lab/internal/marketdata"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/marketdata"
 )
 
 // VWAP is Σ(price×qty) / Σ(qty) in Ticks. Integer division truncates

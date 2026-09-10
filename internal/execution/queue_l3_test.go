@@ -3,8 +3,8 @@ package execution
 import (
 	"testing"
 
-	"github.com/morteza-sakifard/market-data-lab/internal/core"
-	"github.com/morteza-sakifard/market-data-lab/internal/marketdata"
+	"github.com/morteza-sakifard/TickEngine/internal/core"
+	"github.com/morteza-sakifard/TickEngine/internal/marketdata"
 )
 
 func addBook(id uint64, side core.Side, px core.Ticks, qty core.Qty) *marketdata.Event {
