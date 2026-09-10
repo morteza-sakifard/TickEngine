@@ -14,9 +14,9 @@ import (
 	"github.com/morteza-sakifard/TickEngine/internal/session"
 )
 
-var updateGolden = flag.Bool("update", false, "write testdata/golden/candles_basic.svg")
+var updateGolden = flag.Bool("update", false, "write data/test/golden/candles_basic.svg")
 
-const goldenPath = "../../testdata/golden/candles_basic.svg"
+const goldenPath = "../../data/test/golden/candles_basic.svg"
 
 func chicago(t *testing.T) *time.Location {
 	t.Helper()

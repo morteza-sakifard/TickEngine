@@ -184,7 +184,7 @@ func TestLogStrategyTwoSourceTypesSameLog(t *testing.T) {
 }
 
 func TestLogStrategySliceMatchesFixture(t *testing.T) {
-	path := filepath.Join("..", "..", "testdata", "mbp1_sample.csv")
+	path := filepath.Join("..", "..", "data", "test", "mbp1_sample.csv")
 	collect := func() []marketdata.Event {
 		f, err := os.Open(path)
 		if err != nil {

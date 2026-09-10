@@ -14,15 +14,15 @@ import (
 	"github.com/morteza-sakifard/TickEngine/internal/marketdata"
 )
 
-// -update regenerates testdata/golden/mbp1_sample.events.txt from the
+// -update regenerates data/test/golden/mbp1_sample.events.txt from the
 // decoder's real output instead of comparing against it. Run once with
 // -update, read the file with your own eyes, commit it, then every
 // future run without -update proves the decoder still agrees with it.
 var updateGolden = flag.Bool("update", false, "write the golden file instead of comparing to it")
 
 const (
-	fixturePath = "../../../testdata/mbp1_sample.csv"
-	goldenPath  = "../../../testdata/golden/mbp1_sample.events.txt"
+	fixturePath = "../../../data/test/mbp1_sample.csv"
+	goldenPath  = "../../../data/test/golden/mbp1_sample.events.txt"
 )
 
 func openFixture(t *testing.T) *os.File {

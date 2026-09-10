@@ -46,7 +46,7 @@ func TestDetectSchema(t *testing.T) {
 }
 
 func TestOpenFixtures(t *testing.T) {
-	mbp10 := openNamed(t, "../../../testdata/mbp10_sample.csv")
+	mbp10 := openNamed(t, "../../../data/test/mbp10_sample.csv")
 	defer mbp10.Close()
 	src, err := Open(mbp10, core.ESZ5(), SchemaMBP10)
 	if err != nil {
@@ -60,7 +60,7 @@ func TestOpenFixtures(t *testing.T) {
 		t.Fatalf("mbp10 first quote = kind=%s bid=%d d1=%d", ev.Kind, ev.Quote.BidPx, ev.Depth.Bids[1].Px)
 	}
 
-	mbo := openNamed(t, "../../../testdata/mbo_sample.csv")
+	mbo := openNamed(t, "../../../data/test/mbo_sample.csv")
 	defer mbo.Close()
 	src, err = Open(mbo, core.ESZ5(), SchemaMBO)
 	if err != nil {
@@ -79,8 +79,8 @@ func TestOpenFixtureGoldens(t *testing.T) {
 		file, golden string
 		schema       Schema
 	}{
-		{"../../../testdata/mbp10_sample.csv", "../../../testdata/golden/mbp10_sample.events.txt", SchemaMBP10},
-		{"../../../testdata/mbo_sample.csv", "../../../testdata/golden/mbo_sample.events.txt", SchemaMBO},
+		{"../../../data/test/mbp10_sample.csv", "../../../data/test/golden/mbp10_sample.events.txt", SchemaMBP10},
+		{"../../../data/test/mbo_sample.csv", "../../../data/test/golden/mbo_sample.events.txt", SchemaMBO},
 	}
 	for _, tc := range cases {
 		f := openNamed(t, tc.file)
@@ -158,7 +158,7 @@ func TestOpenRealCMEHeaders(t *testing.T) {
 }
 
 func TestMBOFixtureBuildsL3(t *testing.T) {
-	f := openNamed(t, "../../../testdata/mbo_sample.csv")
+	f := openNamed(t, "../../../data/test/mbo_sample.csv")
 	defer f.Close()
 	src, err := Open(f, core.ESZ5(), SchemaMBO)
 	if err != nil {

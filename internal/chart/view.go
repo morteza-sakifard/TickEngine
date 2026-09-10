@@ -15,7 +15,7 @@ import (
 // same View, same facts.
 //
 // Overlays and Panels are drawn when present. Empty slices keep the
-// step-8 candle layout, so testdata/golden/candles_basic.svg stays
+// step-8 candle layout, so data/test/golden/candles_basic.svg stays
 // valid.
 type View struct {
 	Instrument core.Instrument

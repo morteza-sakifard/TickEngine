@@ -92,7 +92,7 @@ func TestHealthyBookBestBidBelowAsk(t *testing.T) {
 }
 
 func TestL2Level0MatchesMBP1Quote(t *testing.T) {
-	path := filepath.Join("..", "..", "testdata", "mbp1_sample.csv")
+	path := filepath.Join("..", "..", "data", "test", "mbp1_sample.csv")
 	f, err := os.Open(path)
 	if err != nil {
 		t.Skip(err)

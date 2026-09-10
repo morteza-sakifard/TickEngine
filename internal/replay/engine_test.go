@@ -150,7 +150,7 @@ func TestDeterminismSameHash(t *testing.T) {
 
 func TestDeterminismFixture(t *testing.T) {
 	hashFile := func() [32]byte {
-		f, err := os.Open("../../testdata/mbp1_sample.csv")
+		f, err := os.Open("../../data/test/mbp1_sample.csv")
 		if err != nil {
 			t.Skip(err)
 		}

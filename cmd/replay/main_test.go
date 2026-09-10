@@ -77,7 +77,7 @@ func TestFormatEvent(t *testing.T) {
 func TestReplayLogIndependentOfSpeed(t *testing.T) {
 	run := func(speed float64) string {
 		t.Helper()
-		f, err := os.Open("../../testdata/mbp1_sample.csv")
+		f, err := os.Open("../../data/test/mbp1_sample.csv")
 		if err != nil {
 			t.Skip(err)
 		}

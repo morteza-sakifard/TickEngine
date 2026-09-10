@@ -25,6 +25,8 @@ dist/
 *.code-workspace
 
 # --- Data and Log Files (Market Data / Feeds) ---
+data/csv/
+data/db/
 *.csv
 *.json
 *.xml
@@ -32,6 +34,9 @@ dist/
 *.xlsm
 *.tsv
 *.log
+*.zst
+*.parquet
+*.duckdb
 
 # --- Local Environment / Secrets ---
 .env

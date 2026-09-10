@@ -111,9 +111,9 @@ func esCal(t *testing.T) session.Calendar {
 }
 
 func TestRenderFixtureETH(t *testing.T) {
-	// testdata trades sit on Sunday evening 2025-09-21/22 UTC, which
+	// Fixture trades sit on Sunday evening 2025-09-21/22 UTC, which
 	// Classify assigns to Monday 2025-09-22 ETH — not RTH.
-	f, err := os.Open("../../testdata/mbp1_sample.csv")
+	f, err := os.Open("../../data/test/mbp1_sample.csv")
 	if err != nil {
 		t.Fatal(err)
 	}

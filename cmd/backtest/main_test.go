@@ -74,7 +74,7 @@ func TestBuyHoldOneTick(t *testing.T) {
 }
 
 func TestBuyHoldOnMBP10Fixture(t *testing.T) {
-	f, err := os.Open("../../testdata/mbp10_sample.csv")
+	f, err := os.Open("../../data/test/mbp10_sample.csv")
 	if err != nil {
 		t.Fatal(err)
 	}

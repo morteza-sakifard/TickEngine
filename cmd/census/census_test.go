@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-const fixturePath = "../../testdata/mbp1_sample.csv"
+const fixturePath = "../../data/test/mbp1_sample.csv"
 
 func seq(from, to int64) []int64 {
 	out := make([]int64, 0, to-from+1)
@@ -349,7 +349,7 @@ func TestCensusMissingColumn(t *testing.T) {
 }
 
 func TestCensusOnMBOFixture(t *testing.T) {
-	data, err := os.ReadFile("../../testdata/mbo_sample.csv")
+	data, err := os.ReadFile("../../data/test/mbo_sample.csv")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -100,7 +100,7 @@ func TestEmptyCutKeepsIndex(t *testing.T) {
 }
 
 func TestLiquidityAroundTouchOnFixture(t *testing.T) {
-	path := filepath.Join("..", "..", "testdata", "mbp1_sample.csv")
+	path := filepath.Join("..", "..", "data", "test", "mbp1_sample.csv")
 	f, err := os.Open(path)
 	if err != nil {
 		t.Skip(err)
